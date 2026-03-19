@@ -242,7 +242,7 @@ button {
     padding: var(--section-padding);
     max-width: var(--max-width);
     margin: 0 auto;
-    min-height: 90vh;
+    min-height: 100vh;
 }
 
 .section__label {
