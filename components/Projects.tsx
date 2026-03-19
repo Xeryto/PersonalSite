@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap-init";
+import { scrambleText } from "@/lib/text-effects";
 import { ExternalLink } from "lucide-react";
 import Image from "next/image";
 
@@ -11,7 +12,6 @@ const projects = [
     desc: "AI-powered handwriting-to-digital-notes app. Converts handwritten notes to LaTeX markdown with 95% accuracy using OCR and LLM clarification.",
     tech: ["Swift", "FastAPI", "Google Vision API", "MathPix", "LLaMA (Groq)"],
     url: "https://github.com/Quillin-Writing-App/backend",
-    gradient: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
     image: "/projects/quillin.png",
   },
   {
@@ -19,7 +19,6 @@ const projects = [
     desc: "Full-stack Learning Management System deployed on AWS EC2. Hit 800+ monthly signups with 99.9% uptime serving 3,000+ active users.",
     tech: ["C#", "ASP.NET", "Entity Framework", "MongoDB", "AWS EC2"],
     url: "https://github.com/Xeryto/Priceless",
-    gradient: "linear-gradient(135deg, #059669 0%, #0284c7 100%)",
     image: "/projects/pricelessedu.png",
   },
   {
@@ -27,7 +26,6 @@ const projects = [
     desc: "Cross-platform fashion app ecosystem monorepo. Includes a React Native mobile app, a web frontend, and a dedicated Python ASGI backend.",
     tech: ["TypeScript", "React Native", "React", "Python", "FastAPI"],
     url: "https://github.com/Xeryto/PolkaMono",
-    gradient: "linear-gradient(135deg, #34d399 0%, #2dd4bf 100%)",
     image: "/projects/polkamono.png",
   },
   {
@@ -35,45 +33,49 @@ const projects = [
     desc: "Browser extension built with TypeScript and deployed via GitHub Pages. Extends web browsing workflows with custom tooling.",
     tech: ["TypeScript", "Chrome APIs", "GitHub Pages"],
     url: "https://github.com/Xeryto/subitupExtension",
-    gradient: "linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)",
     image: "/projects/subitup.png",
   },
 ];
 
 export default function Projects() {
   const sectionRef = useRef<HTMLElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.utils.toArray<HTMLElement>(".project-card").forEach((card) => {
-        const visual = card.querySelector(".project-card__visual");
+      const title = sectionRef.current?.querySelector(
+        ".section__title"
+      ) as HTMLElement | null;
+      if (title) {
+        const text = title.textContent || "";
+        title.textContent = "";
+        ScrollTrigger.create({
+          trigger: title,
+          start: "top 85%",
+          once: true,
+          onEnter: () => scrambleText(title, text),
+        });
+      }
 
-        gsap.from(card, {
-          opacity: 0,
-          y: 60,
-          duration: 1,
-          ease: "power3.out",
+      // Horizontal scroll — desktop only
+      const mm = gsap.matchMedia();
+      mm.add("(min-width: 769px)", () => {
+        const track = trackRef.current;
+        if (!track) return;
+
+        const totalScroll = track.scrollWidth - window.innerWidth;
+
+        gsap.to(track, {
+          x: -totalScroll,
+          ease: "none",
           scrollTrigger: {
-            trigger: card,
-            start: "top 85%",
-            toggleActions: "play none none reverse",
+            trigger: sectionRef.current,
+            pin: true,
+            scrub: 1,
+            end: () => `+=${totalScroll}`,
+            invalidateOnRefresh: true,
           },
         });
-
-        // Parallax on the visual
-        if (visual) {
-          gsap.from(visual, {
-            y: 30,
-            duration: 1,
-            ease: "none",
-            scrollTrigger: {
-              trigger: card,
-              start: "top bottom",
-              end: "bottom top",
-              scrub: 1,
-            },
-          });
-        }
       });
     }, sectionRef);
 
@@ -81,16 +83,15 @@ export default function Projects() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="section" id="projects">
-      <div className="section__label">Projects</div>
-      <div className="section__title">Things I&apos;ve built.</div>
-      <div className="projects__grid">
+    <section ref={sectionRef} className="projects-section" id="projects">
+      <div className="projects__header">
+        <div className="section__label">Projects</div>
+        <div className="section__title">Things I&apos;ve built.</div>
+      </div>
+      <div ref={trackRef} className="projects__track">
         {projects.map((p, i) => (
           <div className="project-card" key={i}>
-            <div
-              className="project-card__visual"
-              style={{ background: p.gradient }}
-            >
+            <div className="project-card__visual">
               <Image
                 src={p.image}
                 alt={p.title}
@@ -114,7 +115,7 @@ export default function Projects() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="project-card__link"
-                data-hoverable
+                data-cursor-label="view project"
               >
                 View on GitHub <ExternalLink size={14} />
               </a>

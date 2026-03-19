@@ -17,7 +17,7 @@ export default function Contact() {
         scrollTrigger: {
           trigger: ".contact__title",
           start: "top 85%",
-          toggleActions: "play none none reverse",
+          once: true,
         },
       });
 
@@ -29,7 +29,7 @@ export default function Contact() {
         scrollTrigger: {
           trigger: ".contact__sub",
           start: "top 85%",
-          toggleActions: "play none none reverse",
+          once: true,
         },
       });
 
@@ -42,7 +42,7 @@ export default function Contact() {
         scrollTrigger: {
           trigger: ".contact__links",
           start: "top 90%",
-          toggleActions: "play none none reverse",
+          once: true,
         },
       });
     }, sectionRef);
@@ -63,7 +63,7 @@ export default function Contact() {
           target="_blank"
           rel="noopener noreferrer"
           className="contact__link"
-          data-hoverable
+          data-cursor-label="view github"
         >
           <Github size={18} />
           GitHub
@@ -73,7 +73,7 @@ export default function Contact() {
           target="_blank"
           rel="noopener noreferrer"
           className="contact__link"
-          data-hoverable
+          data-cursor-label="view linkedin"
         >
           <Linkedin size={18} />
           LinkedIn
@@ -81,7 +81,7 @@ export default function Contact() {
         <a
           href="mailto:d.igoshin@columbia.edu"
           className="contact__link"
-          data-hoverable
+          data-cursor-label="email me"
         >
           <Mail size={18} />
           d.igoshin@columbia.edu
@@ -90,7 +90,7 @@ export default function Contact() {
           href="/Daniel_Igoshin_Resume.pdf"
           download
           className="contact__link"
-          data-hoverable
+          data-cursor-label="download"
         >
           <FileDown size={18} />
           Resume

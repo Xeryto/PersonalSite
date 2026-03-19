@@ -6,6 +6,12 @@ import Lenis from "lenis";
 
 gsap.registerPlugin(ScrollTrigger);
 
+let currentVelocity = 0;
+
+export function getScrollVelocity(): number {
+  return currentVelocity;
+}
+
 export function initSmoothScroll(): () => void {
   const lenis = new Lenis({
     duration: 1.2,
@@ -13,7 +19,10 @@ export function initSmoothScroll(): () => void {
     smoothWheel: true,
   });
 
-  lenis.on("scroll", ScrollTrigger.update);
+  lenis.on("scroll", (e: { velocity: number }) => {
+    currentVelocity = e.velocity;
+    ScrollTrigger.update();
+  });
 
   gsap.ticker.add((time) => {
     lenis.raf(time * 1000);

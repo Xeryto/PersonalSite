@@ -1,70 +1,74 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { gsap, ScrollTrigger } from "@/lib/gsap-init";
-import { ChevronDown, Github, Linkedin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { gsap } from "@/lib/gsap-init";
+import { Github, Linkedin } from "lucide-react";
+
+const LINE1 = "daniel igoshin";
+const LINE2 = "software engineer, columbia '27";
 
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
+  const [charIndex, setCharIndex] = useState(0);
+  const [started, setStarted] = useState(false);
+  const [showLinks, setShowLinks] = useState(false);
+  const totalChars = LINE1.length + LINE2.length;
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ delay: 0.3 });
-
-      tl.to(".hero__name-text", {
-        y: 0,
-        duration: 1,
-        stagger: 0.12,
-        ease: "power4.out",
-      })
-        .to(
-          ".hero__tagline-text",
-          {
-            y: 0,
-            duration: 0.8,
-            ease: "power4.out",
-          },
-          "-=0.4"
-        )
-        .to(
-          ".hero__cta-row-inner",
-          {
-            y: 0,
-            duration: 0.8,
-            ease: "power4.out",
-          },
-          "-=0.4"
-        );
-    }, sectionRef);
-
-    return () => ctx.revert();
+    const t = setTimeout(() => setStarted(true), 500);
+    return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!started) return;
+    if (charIndex >= totalChars) {
+      const t = setTimeout(() => setShowLinks(true), 300);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setCharIndex((i) => i + 1), 30);
+    return () => clearTimeout(t);
+  }, [started, charIndex, totalChars]);
+
+  useEffect(() => {
+    if (!showLinks) return;
+    gsap.fromTo(
+      ".hero__links",
+      { opacity: 0, y: 10 },
+      { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }
+    );
+  }, [showLinks]);
+
+  const display1 = LINE1.slice(0, Math.min(charIndex, LINE1.length));
+  const display2 =
+    charIndex > LINE1.length
+      ? LINE2.slice(0, charIndex - LINE1.length)
+      : "";
+  const cursorOnLine1 = charIndex <= LINE1.length;
 
   return (
     <section ref={sectionRef} className="hero" id="hero">
-      <h1 className="hero__name">
-        <span className="hero__name-line">
-          <span className="hero__name-text">Daniel</span>
+      <div className="hero__terminal">
+        <span className="hero__line">
+          <span className="hero__prompt">&gt;</span>
+          {display1}
+          {cursorOnLine1 && <span className="hero__cursor" />}
         </span>
-        <span className="hero__name-line">
-          <span className="hero__name-text">Igoshin</span>
+        <span className="hero__line hero__sub">
+          {display2}
+          {!cursorOnLine1 && charIndex < totalChars && (
+            <span className="hero__cursor" />
+          )}
         </span>
-      </h1>
+      </div>
 
-      <p className="hero__tagline">
-        <span className="hero__tagline-text">
-          Software Engineer · CS @ Columbia &apos;27
-        </span>
-      </p>
-
-      <div className="hero__cta-row">
-        <div className="hero__cta-row-inner">
+      {showLinks && (
+        <div className="hero__links">
           <a
             href="https://github.com/Xeryto"
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn--primary"
-            data-hoverable
+            data-cursor-label="view github"
           >
             <Github size={16} />
             GitHub
@@ -74,18 +78,13 @@ export default function Hero() {
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn--ghost"
-            data-hoverable
+            data-cursor-label="view linkedin"
           >
             <Linkedin size={16} />
             LinkedIn
           </a>
         </div>
-      </div>
-
-      <div className="hero__scroll-cue">
-        <span>Scroll</span>
-        <ChevronDown size={16} />
-      </div>
+      )}
     </section>
   );
 }

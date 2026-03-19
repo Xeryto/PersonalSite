@@ -9,7 +9,6 @@ import Projects from "@/components/Projects";
 import TechStack from "@/components/TechStack";
 import Contact from "@/components/Contact";
 import CustomCursor from "@/components/CustomCursor";
-import ScrollProgress from "@/components/ScrollProgress";
 import ShaderBackground from "@/components/ShaderBackground";
 import { initSmoothScroll } from "@/lib/gsap-init";
 
@@ -23,7 +22,6 @@ export default function Home() {
     <>
       <ShaderBackground />
       <div className="noise-overlay" aria-hidden="true" />
-      <ScrollProgress />
       <CustomCursor />
       <Navbar />
       <main>
@@ -35,7 +33,7 @@ export default function Home() {
         <Contact />
       </main>
       <footer className="footer">
-        © 2026 Daniel Igoshin · Built with Next.js + GSAP
+        &copy; 2026 Daniel Igoshin
       </footer>
     </>
   );
