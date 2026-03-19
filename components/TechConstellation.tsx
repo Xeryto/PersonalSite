@@ -93,6 +93,7 @@ export default function TechConstellation() {
   const nodesRef = useRef<Node[]>([]);
   const mouseRef = useRef({ x: -9999, y: -9999 });
   const hoveredRef = useRef<string | null>(null);
+  const dragRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const initNodes = useCallback((w: number, h: number) => {
@@ -158,32 +159,63 @@ export default function TechConstellation() {
     resize();
     window.addEventListener("resize", resize);
 
-    const onMouseMove = (e: MouseEvent) => {
+    const getMousePos = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      mouseRef.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
 
-      // Hit test for hover
-      let found: string | null = null;
+    const hitTest = (mx: number, my: number): string | null => {
       for (const node of nodesRef.current) {
-        const dx = mouseRef.current.x - node.x;
-        const dy = mouseRef.current.y - node.y;
-        if (Math.sqrt(dx * dx + dy * dy) < node.radius + 4) {
-          found = node.id;
-          break;
+        const dx = mx - node.x;
+        const dy = my - node.y;
+        if (Math.sqrt(dx * dx + dy * dy) < node.radius + 4) return node.id;
+      }
+      return null;
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      const pos = getMousePos(e);
+      mouseRef.current = pos;
+
+      if (dragRef.current) {
+        const node = nodesRef.current.find((n) => n.id === dragRef.current);
+        if (node) {
+          node.x = pos.x;
+          node.y = pos.y;
+          node.vx = 0;
+          node.vy = 0;
         }
       }
-      hoveredRef.current = found;
+
+      hoveredRef.current = dragRef.current || hitTest(pos.x, pos.y);
+      canvas.style.cursor = hoveredRef.current ? "grab" : "";
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      const pos = getMousePos(e);
+      const hit = hitTest(pos.x, pos.y);
+      if (hit) {
+        dragRef.current = hit;
+        canvas.style.cursor = "grabbing";
+      }
+    };
+
+    const onMouseUp = () => {
+      dragRef.current = null;
+      canvas.style.cursor = hoveredRef.current ? "grab" : "";
     };
 
     const onMouseLeave = () => {
       mouseRef.current = { x: -9999, y: -9999 };
       hoveredRef.current = null;
+      dragRef.current = null;
+      canvas.style.cursor = "";
     };
 
     canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("mouseup", onMouseUp);
     canvas.addEventListener("mouseleave", onMouseLeave);
 
     let frameId: number;
@@ -257,7 +289,10 @@ export default function TechConstellation() {
 
       // Update positions
       const margin = 40;
+      const dragged = dragRef.current;
       for (const node of nodes) {
+        // Skip physics for dragged node
+        if (node.id === dragged) continue;
         // Soft repulsion from edges
         const dl = margin - (node.x - node.radius);
         const dr = margin - (w - node.radius - node.x);
@@ -358,7 +393,10 @@ export default function TechConstellation() {
     return () => {
       cancelAnimationFrame(frameId);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("mouseup", onMouseUp);
       canvas.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("mousedown", onMouseDown);
+      canvas.removeEventListener("mouseup", onMouseUp);
       canvas.removeEventListener("mouseleave", onMouseLeave);
     };
   }, [initNodes]);
