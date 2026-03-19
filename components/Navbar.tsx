@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { gsap, ScrollTrigger } from "@/lib/gsap-init";
 
 export default function Navbar() {
   const navRef = useRef<HTMLElement>(null);
@@ -33,7 +32,6 @@ export default function Navbar() {
     >
       <a
         className="navbar__logo"
-        data-hoverable
         onClick={() => scrollTo("hero")}
         style={{ cursor: "pointer" }}
       >
@@ -44,7 +42,6 @@ export default function Navbar() {
           <li key={id}>
             <a
               className="navbar__link"
-              data-hoverable
               onClick={() => scrollTo(id)}
               style={{ cursor: "pointer" }}
             >

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { getScrollVelocity } from "@/lib/gsap-init";
 
 const vertexShader = `
   varying vec2 vUv;
@@ -14,9 +15,9 @@ const vertexShader = `
 const fragmentShader = `
   uniform float uTime;
   uniform vec2 uResolution;
+  uniform float uScrollVelocity;
   varying vec2 vUv;
 
-  // Simplex-ish noise
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
@@ -50,17 +51,22 @@ const fragmentShader = `
 
     float t = uTime * 0.08;
 
-    float n1 = snoise(uv * 1.5 + t);
-    float n2 = snoise(uv * 3.0 - t * 0.7);
+    // Scroll velocity modulates frequency (15-20% variation)
+    float velFactor = 1.0 + uScrollVelocity * 0.18;
+
+    float n1 = snoise(uv * 1.5 * velFactor + t);
+    float n2 = snoise(uv * 3.0 * velFactor - t * 0.7);
     float n = (n1 + n2 * 0.5) * 0.5 + 0.5;
 
-    vec3 col1 = vec3(0.04, 0.07, 0.13); // Cinematic Slate/Navy
-    vec3 col2 = vec3(0.06, 0.72, 0.50); // Emerald
-    vec3 col3 = vec3(0.02, 0.71, 0.83); // Cyan
+    // Warm near-monochrome palette
+    vec3 col1 = vec3(0.10, 0.09, 0.08); // Dark graphite
+    vec3 col2 = vec3(0.14, 0.12, 0.11); // Warm mid
+    vec3 col3 = vec3(0.18, 0.10, 0.07); // Subtle warm highlight
 
-    // Cinematic smooth blending for that Apple/Linear aesthetic
-    vec3 color = mix(col1, col2, n * 0.25);
-    color = mix(color, col3, pow(n, 2.5) * 0.15);
+    vec3 color = mix(col1, col2, n * 0.4);
+    // Warm highlight intensifies with scroll velocity
+    float highlightStrength = 0.15 + uScrollVelocity * 0.08;
+    color = mix(color, col3, pow(n, 2.5) * highlightStrength);
 
     // Vignette
     float vig = 1.0 - length((vUv - 0.5) * 1.4);
@@ -94,6 +100,7 @@ export default function ShaderBackground() {
       uResolution: {
         value: new THREE.Vector2(window.innerWidth, window.innerHeight),
       },
+      uScrollVelocity: { value: 0 },
     };
 
     const geo = new THREE.PlaneGeometry(2, 2);
@@ -106,9 +113,16 @@ export default function ShaderBackground() {
 
     let frameId: number;
     const clock = new THREE.Clock();
+    let smoothVelocity = 0;
 
     const animate = () => {
       uniforms.uTime.value = clock.getElapsedTime();
+
+      // Smooth scroll velocity with decay (~1.5s cooldown)
+      const rawVelocity = Math.min(Math.abs(getScrollVelocity()) / 1000, 1);
+      smoothVelocity += (rawVelocity - smoothVelocity) * 0.03;
+      uniforms.uScrollVelocity.value = smoothVelocity;
+
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
