@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap-init";
 import { ExternalLink } from "lucide-react";
+import Image from "next/image";
 
 const projects = [
   {
@@ -11,6 +12,7 @@ const projects = [
     tech: ["Swift", "FastAPI", "Google Vision API", "MathPix", "LLaMA (Groq)"],
     url: "https://github.com/Quillin-Writing-App/backend",
     gradient: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
+    image: "/projects/quillin.png",
   },
   {
     title: "PricelessEdu",
@@ -18,6 +20,7 @@ const projects = [
     tech: ["C#", "ASP.NET", "Entity Framework", "MongoDB", "AWS EC2"],
     url: "https://github.com/Xeryto/Priceless",
     gradient: "linear-gradient(135deg, #059669 0%, #0284c7 100%)",
+    image: "/projects/pricelessedu.png",
   },
   {
     title: "PolkaMono",
@@ -25,6 +28,7 @@ const projects = [
     tech: ["TypeScript", "React Native", "React", "Python", "FastAPI"],
     url: "https://github.com/Xeryto/PolkaMono",
     gradient: "linear-gradient(135deg, #34d399 0%, #2dd4bf 100%)",
+    image: "/projects/polkamono.png",
   },
   {
     title: "subitupExtension",
@@ -32,6 +36,7 @@ const projects = [
     tech: ["TypeScript", "Chrome APIs", "GitHub Pages"],
     url: "https://github.com/Xeryto/subitupExtension",
     gradient: "linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)",
+    image: "/projects/subitup.png",
   },
 ];
 
@@ -82,24 +87,17 @@ export default function Projects() {
       <div className="projects__grid">
         {projects.map((p, i) => (
           <div className="project-card" key={i}>
-            <div className="project-card__visual">
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  background: p.gradient,
-                  opacity: 0.8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "var(--text-3xl)",
-                  fontWeight: 800,
-                  color: "rgba(255,255,255,0.15)",
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                {p.title}
-              </div>
+            <div
+              className="project-card__visual"
+              style={{ background: p.gradient }}
+            >
+              <Image
+                src={p.image}
+                alt={p.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="project-card__image"
+              />
             </div>
             <div className="project-card__info">
               <h3 className="project-card__title">{p.title}</h3>
