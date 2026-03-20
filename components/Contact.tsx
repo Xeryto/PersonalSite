@@ -33,15 +33,33 @@ export default function Contact() {
         },
       });
 
-      gsap.from(".contact__link", {
+      ScrollTrigger.create({
+        trigger: ".contact__links",
+        start: "top 90%",
+        once: true,
+        onEnter: () => {
+          gsap.fromTo(
+            ".contact__link",
+            { opacity: 0, y: 20 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              stagger: 0.1,
+              ease: "power3.out",
+            }
+          );
+        },
+      });
+
+      gsap.from(".contact__resume", {
         opacity: 0,
-        y: 20,
-        duration: 0.6,
-        stagger: 0.1,
+        y: 30,
+        duration: 0.8,
         ease: "power3.out",
         scrollTrigger: {
-          trigger: ".contact__links",
-          start: "top 90%",
+          trigger: ".contact__resume",
+          start: "top 85%",
           once: true,
         },
       });
@@ -86,15 +104,28 @@ export default function Contact() {
           <Mail size={18} />
           d.igoshin@columbia.edu
         </a>
-        <a
-          href="/Daniel_Igoshin_Resume.pdf"
-          download
-          className="contact__link"
-          data-cursor-label="download"
-        >
-          <FileDown size={18} />
-          Resume
-        </a>
+      </div>
+
+      <div className="contact__resume">
+        <div className="contact__resume-header">
+          <span className="contact__resume-label">Resume</span>
+          <a
+            href="/Daniel_Igoshin_Resume.pdf"
+            download
+            className="contact__resume-download"
+            data-cursor-label="download"
+          >
+            <FileDown size={16} />
+            Download PDF
+          </a>
+        </div>
+        <div className="contact__resume-viewer">
+          <iframe
+            src="/Daniel_Igoshin_Resume.pdf"
+            className="contact__resume-iframe"
+            title="Resume"
+          />
+        </div>
       </div>
     </section>
   );
