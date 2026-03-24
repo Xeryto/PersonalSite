@@ -70,10 +70,10 @@ export default function Contact() {
 
   return (
     <section ref={sectionRef} className="section contact" id="contact">
-      <h2 className="contact__title">Let&apos;s connect.</h2>
+      <h2 className="contact__title">Get in touch.</h2>
       <p className="contact__sub">
-        Open to internship opportunities, collaborations, and interesting
-        conversations.
+        Looking for internships and happy to chat about
+        interesting problems.
       </p>
       <div className="contact__links">
         <a

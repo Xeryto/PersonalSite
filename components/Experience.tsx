@@ -112,7 +112,7 @@ export default function Experience() {
   return (
     <section ref={sectionRef} className="section" id="experience">
       <div className="section__label">Experience</div>
-      <div className="section__title">Where I&apos;ve honed my craft.</div>
+      <div className="section__title">Where I&apos;ve worked.</div>
       <div className="exp-stack">
         {experiences.map((exp, i) => (
           <div

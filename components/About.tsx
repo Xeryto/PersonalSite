@@ -42,17 +42,16 @@ export default function About() {
   return (
     <section ref={sectionRef} className="section" id="about">
       <div className="section__label">About</div>
-      <div className="section__title">Building software that scales.</div>
+      <div className="section__title">A bit about me.</div>
       <p className="about__text">
         I&apos;m a <strong>Computer Science student at Columbia University</strong> (3.95
-        GPA) with a passion for engineering systems that are fast, reliable, and
-        impactful. From automating CI/CD triage at{" "}
-        <strong>Intuit Mailchimp</strong> to building ML models that cut manual
-        processing by 40%, I thrive at the intersection of{" "}
-        <strong>backend engineering, SRE, and applied ML</strong>. I&apos;ve
-        shipped code used by 610+ engineers, 5,000+ users, and 800+ monthly
-        signups. I care about writing clean systems that solve real
-        problems&mdash;and I love the craft.
+        GPA) and I spend most of my time building backend systems and
+        figuring out why things break in production. At{" "}
+        <strong>Intuit Mailchimp</strong> I automated CI/CD failure triage, at
+        Resola I built ML models that cut manual processing by 40%, and
+        somewhere along the way I got comfortable working across{" "}
+        <strong>backend engineering, SRE, and applied ML</strong>. Code I&apos;ve
+        written is used by 610+ engineers and thousands of end users.
       </p>
     </section>
   );

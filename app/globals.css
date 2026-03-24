@@ -474,20 +474,21 @@ button {
 .projects__track {
     display: flex;
     gap: var(--space-lg);
-    padding: var(--space-xl) clamp(1.5rem, 4vw, 3rem);
+    padding: var(--space-xl) calc(100vw - min(640px, 80vw) - clamp(1.5rem, 4vw, 3rem)) var(--space-xl) clamp(1.5rem, 4vw, 3rem);
 }
 
 .project-card {
-    min-width: min(420px, 75vw);
+    width: min(640px, 80vw);
     flex-shrink: 0;
     display: grid;
     grid-template-columns: 1fr;
-    gap: var(--space-md);
+    max-height: calc(100vh - 160px);
+    gap: var(--space-sm);
     align-items: start;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: var(--space-lg);
+    padding: var(--space-md);
     overflow: hidden;
     transition:
         border-color var(--duration-normal) var(--ease-out-expo),
@@ -504,7 +505,7 @@ button {
     border-radius: var(--radius-md);
     overflow: hidden;
     aspect-ratio: 16 / 9;
-    max-height: 220px;
+    max-height: 180px;
     background: var(--bg-elevated);
 }
 

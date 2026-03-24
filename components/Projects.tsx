@@ -9,28 +9,28 @@ import Image from "next/image";
 const projects = [
   {
     title: "Quillin'",
-    desc: "AI-powered handwriting-to-digital-notes app. Converts handwritten notes to LaTeX markdown with 95% accuracy using OCR and LLM clarification.",
+    desc: "Turns handwritten notes into LaTeX markdown at 95% accuracy using OCR and LLM clarification. Started as a hackathon project after our team realized we all had the same problem with retyping lecture notes.",
     tech: ["Swift", "FastAPI", "Google Vision API", "MathPix", "LLaMA (Groq)"],
     url: "https://github.com/Quillin-Writing-App/backend",
     image: "/projects/quillin.png",
   },
   {
     title: "PricelessEdu",
-    desc: "Full-stack Learning Management System deployed on AWS EC2. Hit 800+ monthly signups with 99.9% uptime serving 3,000+ active users.",
+    desc: "Learning Management System running on AWS EC2. Grew to 800+ monthly signups and 3,000+ active users with 99.9% uptime.",
     tech: ["C#", "ASP.NET", "Entity Framework", "MongoDB", "AWS EC2"],
     url: "https://github.com/Xeryto/Priceless",
     image: "/projects/pricelessedu.png",
   },
   {
     title: "PolkaMono",
-    desc: "Cross-platform fashion app ecosystem monorepo. Includes a React Native mobile app, a web frontend, and a dedicated Python ASGI backend.",
+    desc: "Fashion app monorepo with a React Native mobile client, web frontend, and Python ASGI backend. Currently gearing up for release.",
     tech: ["TypeScript", "React Native", "React", "Python", "FastAPI"],
     url: "https://github.com/Xeryto/PolkaMono",
     image: "/projects/polkamono.png",
   },
   {
     title: "subitupExtension",
-    desc: "Browser extension built with TypeScript and deployed via GitHub Pages. Extends web browsing workflows with custom tooling.",
+    desc: "Chrome extension that syncs my work shifts to my calendar so I stop forgetting about them. Currently pending review on the Chrome Web Store.",
     tech: ["TypeScript", "Chrome APIs", "GitHub Pages"],
     url: "https://github.com/Xeryto/subitupExtension",
     image: "/projects/subitup.png",
