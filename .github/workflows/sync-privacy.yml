@@ -1,0 +1,30 @@
+name: Sync SubItUp privacy fallback
+
+on:
+  repository_dispatch:
+    types: [privacy-updated]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull upstream PRIVACY.md
+        run: |
+          curl -fsS https://raw.githubusercontent.com/Xeryto/subitupExtension/master/PRIVACY.md \
+            -o app/subitup-sync/privacy/PRIVACY.fallback.md
+
+      - name: Commit if changed
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add app/subitup-sync/privacy/PRIVACY.fallback.md
+            git commit -m "chore: sync privacy fallback from subitupExtension"
+            git push
+          fi
