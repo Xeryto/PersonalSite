@@ -346,8 +346,8 @@ export default function TechConstellation() {
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
         ctx.strokeStyle = edgeHighlighted
-          ? "rgba(232, 115, 74, 0.2)"
-          : "rgba(160, 152, 144, 0.06)";
+          ? "rgba(79, 124, 255, 0.2)"
+          : "rgba(133, 147, 173, 0.06)";
         ctx.lineWidth = edgeHighlighted ? 1.5 : 0.5;
         ctx.stroke();
       }
@@ -362,20 +362,20 @@ export default function TechConstellation() {
         if (node.type === "language") {
           ctx.fillStyle =
             node.id === hovered
-              ? `rgba(232, 115, 74, ${alpha})`
-              : `rgba(46, 42, 40, ${alpha})`;
-          ctx.strokeStyle = `rgba(232, 115, 74, ${0.5 * alpha})`;
+              ? `rgba(79, 124, 255, ${alpha})`
+              : `rgba(24, 43, 77, ${alpha})`;
+          ctx.strokeStyle = `rgba(79, 124, 255, ${0.5 * alpha})`;
           ctx.lineWidth = node.id === hovered ? 2 : 1;
         } else {
-          ctx.fillStyle = `rgba(36, 33, 32, ${alpha})`;
-          ctx.strokeStyle = `rgba(160, 152, 144, ${0.2 * alpha})`;
+          ctx.fillStyle = `rgba(17, 32, 58, ${alpha})`;
+          ctx.strokeStyle = `rgba(133, 147, 173, ${0.2 * alpha})`;
           ctx.lineWidth = 1;
         }
         ctx.fill();
         ctx.stroke();
 
         // Label
-        ctx.fillStyle = `rgba(237, 232, 227, ${0.9 * alpha})`;
+        ctx.fillStyle = `rgba(228, 234, 245, ${0.9 * alpha})`;
         ctx.font =
           node.type === "language"
             ? "bold 11px Inter, sans-serif"

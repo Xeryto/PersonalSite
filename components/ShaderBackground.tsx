@@ -58,13 +58,13 @@ const fragmentShader = `
     float n2 = snoise(uv * 3.0 * velFactor - t * 0.7);
     float n = (n1 + n2 * 0.5) * 0.5 + 0.5;
 
-    // Warm near-monochrome palette
-    vec3 col1 = vec3(0.10, 0.09, 0.08); // Dark graphite
-    vec3 col2 = vec3(0.14, 0.12, 0.11); // Warm mid
-    vec3 col3 = vec3(0.18, 0.10, 0.07); // Subtle warm highlight
+    // Sapphire palette
+    vec3 col1 = vec3(0.04, 0.08, 0.15); // Midnight blue
+    vec3 col2 = vec3(0.06, 0.11, 0.22); // Mid blue
+    vec3 col3 = vec3(0.10, 0.16, 0.34); // Sapphire highlight
 
     vec3 color = mix(col1, col2, n * 0.4);
-    // Warm highlight intensifies with scroll velocity
+    // Highlight intensifies with scroll velocity
     float highlightStrength = 0.15 + uScrollVelocity * 0.08;
     color = mix(color, col3, pow(n, 2.5) * highlightStrength);
 
