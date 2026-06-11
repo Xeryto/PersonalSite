@@ -8,15 +8,15 @@ export const SPHERE_RADIUS = 10;
 // filling their cell; the remainder is the gutter where grid lines run.
 export const CELL_LAT = 22;
 export const CELL_LON = 30;
-export const PATCH_LAT_SPAN = 19.5;
-export const PATCH_LON_SPAN = 27.5;
+export const PATCH_LAT_SPAN = 17;
+export const PATCH_LON_SPAN = 24.5;
 export const LAT_BANDS = [44, 22, 0, -22, -44];
 export const COLS = 360 / CELL_LON;
 
 // Mono metadata strip sits ON the row-boundary grid line below each card.
 export const STRIP_LAT_OFFSET = -CELL_LAT / 2;
 export const STRIP_LAT_SPAN = 2.2;
-export const STRIP_LON_SPAN = 26;
+export const STRIP_LON_SPAN = 24.5;
 
 export interface Slot {
   position: [number, number, number];

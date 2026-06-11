@@ -39,7 +39,8 @@ interface TileData {
 
 const FORWARD = new THREE.Vector3(0, 0, -1);
 const DEG = Math.PI / 180;
-const GRID_COLOR = 0x475673;
+const GRID_COLOR = 0x3a3e45;
+const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 export default function WorkSphere({
   activeThemes,
@@ -167,8 +168,17 @@ export default function WorkSphere({
       );
     }
 
+    // Logical content lives in a 5x12 matrix so vertical row-recycling and
+    // filtering can re-address it; rowOffset shifts which base row a
+    // physical band displays.
+    const baseContent: Project[][] = LAT_BANDS.map(() => []);
+    let rowOffset = 0;
+
     const tiles = slots.map((slot, i) => {
       const project = ranked[i % ranked.length];
+      const bandIdx = LAT_BANDS.indexOf(slot.lat);
+      const colIdx = Math.round(slot.lon / CELL_LON);
+      baseContent[bandIdx][colIdx] = project;
       const rotY = -slot.lon * DEG;
 
       const material = new THREE.MeshBasicMaterial({
@@ -194,18 +204,33 @@ export default function WorkSphere({
       strip.rotation.y = rotY;
       stripGroup.add(strip);
 
-      return { mesh, material, strip, stripMaterial, project };
+      return { mesh, material, strip, stripMaterial, project, bandIdx, colIdx };
     });
 
-    // --- rotation state ---
+    type TileEntry = (typeof tiles)[number];
+    const displayedProject = (entry: TileEntry): Project =>
+      baseContent[mod(entry.bandIdx - rowOffset, LAT_BANDS.length)][entry.colIdx];
+
+    const applyContent = (entry: TileEntry) => {
+      const next = displayedProject(entry);
+      if (entry.project.slug === next.slug) return;
+      entry.project = next;
+      (entry.mesh.userData as TileData).project = next;
+      entry.material.map = textures.get(next.slug)!.texture;
+      entry.stripMaterial.map = stripTextures.get(next.slug)!.texture;
+    };
+
+    const remap = () => tiles.forEach(applyContent);
+
+    // --- rotation state (pitch is unclamped; rows recycle every cell) ---
     let yaw = 0;
     let pitch = 0;
     let targetYaw = 0;
     let targetPitch = 0;
     let inertia = 0;
-    const PITCH_LIMIT = 0.43;
-    const clampPitch = (v: number) =>
-      Math.min(PITCH_LIMIT, Math.max(-PITCH_LIMIT, v));
+    let inertiaY = 0;
+    const CELL_RAD = CELL_LAT * DEG;
+    const HALF_CELL_RAD = CELL_RAD / 2;
 
     // --- intro ---
     let introTween: gsap.core.Tween | null = null;
@@ -224,7 +249,7 @@ export default function WorkSphere({
           onUpdate: () => requestRender(),
         });
       });
-      gridMaterial.color.setHex(0x0a1426);
+      gridMaterial.color.setHex(0x0a0a0b);
       gsap.to(gridMaterial.color, {
         r: ((GRID_COLOR >> 16) & 255) / 255,
         g: ((GRID_COLOR >> 8) & 255) / 255,
@@ -255,6 +280,7 @@ export default function WorkSphere({
     let lastX = 0;
     let lastY = 0;
     let dragVel = 0;
+    let dragVelY = 0;
     let hovered: THREE.Mesh | null = null;
 
     const setHover = (mesh: THREE.Mesh | null) => {
@@ -321,7 +347,9 @@ export default function WorkSphere({
       lastX = e.clientX;
       lastY = e.clientY;
       dragVel = 0;
+      dragVelY = 0;
       inertia = 0;
+      inertiaY = 0;
       introTween?.kill();
     };
 
@@ -334,8 +362,9 @@ export default function WorkSphere({
         lastY = e.clientY;
         moved += Math.abs(dx) + Math.abs(dy);
         targetYaw += dx * 0.0045;
-        targetPitch = clampPitch(targetPitch - dy * 0.003);
+        targetPitch -= dy * 0.003;
         dragVel = dragVel * 0.5 + dx * 0.0045 * 0.5;
+        dragVelY = dragVelY * 0.5 + -dy * 0.003 * 0.5;
         requestRender();
       } else if (e.pointerType === "mouse") {
         setHover(pick(e.clientX, e.clientY));
@@ -350,6 +379,7 @@ export default function WorkSphere({
         if (hit) onSelectRef.current(hit.userData.project as Project);
       } else if (!reducedMotion) {
         inertia = dragVel;
+        inertiaY = dragVelY;
         requestRender(2000);
       }
     };
@@ -357,7 +387,8 @@ export default function WorkSphere({
     const onWheel = (e: WheelEvent) => {
       if (modeRef.current !== "active") return;
       e.preventDefault();
-      targetYaw += (e.deltaY + e.deltaX) * 0.0012;
+      targetYaw += e.deltaX * 0.0012;
+      targetPitch += e.deltaY * 0.0012;
       requestRender();
     };
 
@@ -370,7 +401,7 @@ export default function WorkSphere({
     // --- imperative hooks for filter / keyboard ---
     rotateByRef.current = (dYaw, dPitch) => {
       targetYaw += dYaw;
-      targetPitch = clampPitch(targetPitch + dPitch);
+      targetPitch += dPitch;
       requestRender(1500);
     };
 
@@ -401,19 +432,14 @@ export default function WorkSphere({
       let swapIndex = 0;
       tiles.forEach((entry, i) => {
         const next = matchList[i % matchList.length];
-        const data = entry.mesh.userData as TileData;
-        if (data.project.slug === next.slug) return;
-
-        const swap = () => {
-          data.project = next;
-          entry.project = next;
-          entry.material.map = textures.get(next.slug)!.texture;
-          entry.stripMaterial.map = stripTextures.get(next.slug)!.texture;
-        };
+        baseContent[mod(entry.bandIdx - rowOffset, LAT_BANDS.length)][
+          entry.colIdx
+        ] = next;
+        if (entry.project.slug === next.slug) return;
 
         gsap.killTweensOf(entry.material);
         if (reducedMotion) {
-          swap();
+          applyContent(entry);
           requestRender();
           return;
         }
@@ -424,7 +450,7 @@ export default function WorkSphere({
           ease: "power2.in",
           delay,
           onUpdate: () => requestRender(),
-          onComplete: swap,
+          onComplete: () => applyContent(entry),
         });
         gsap.to(entry.material, {
           opacity: 1,
@@ -468,6 +494,13 @@ export default function WorkSphere({
       } else {
         inertia = 0;
       }
+      if (Math.abs(inertiaY) > 0.00005) {
+        targetPitch += inertiaY;
+        inertiaY *= 0.94;
+        requestRender();
+      } else {
+        inertiaY = 0;
+      }
 
       const moving =
         Math.abs(targetYaw - yaw) > 0.0001 ||
@@ -477,6 +510,25 @@ export default function WorkSphere({
       const k = 1 - Math.exp(-5 * dt);
       yaw += (targetYaw - yaw) * k;
       pitch += (targetPitch - pitch) * k;
+
+      // endless vertical spin: physical pitch stays within half a cell while
+      // content shifts one row per crossing — the snap is frame-exact, so
+      // the rendered image is identical and the seam invisible.
+      let shifted = false;
+      while (pitch > HALF_CELL_RAD) {
+        pitch -= CELL_RAD;
+        targetPitch -= CELL_RAD;
+        rowOffset--;
+        shifted = true;
+      }
+      while (pitch < -HALF_CELL_RAD) {
+        pitch += CELL_RAD;
+        targetPitch += CELL_RAD;
+        rowOffset++;
+        shifted = true;
+      }
+      if (shifted) remap();
+
       group.rotation.set(pitch, yaw, 0);
 
       // fade tiles rotating behind the camera; strips track their tile

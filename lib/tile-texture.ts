@@ -2,11 +2,12 @@ import * as THREE from "three";
 import type { Project } from "@/lib/projects";
 
 const COLORS = {
-  coverFallback: "#11203a",
-  coverFallbackEnd: "#182b4d",
-  caption: "#e4eaf5",
-  meta: "#8593ad",
-  strip: "#56627d",
+  coverFallback: "#121316",
+  coverFallbackEnd: "#1a1b1f",
+  caption: "#f2f3f5",
+  meta: "#b9bfca",
+  strip: "#a6abb5",
+  stripBg: "#0a0a0b",
 };
 
 let monoCache: string | null = null;
@@ -50,8 +51,8 @@ function buildOverlay(project: Project, w: number, h: number): HTMLCanvasElement
   const s = w / 1024;
 
   const grad = ctx.createLinearGradient(0, h * 0.6, 0, h);
-  grad.addColorStop(0, "rgba(4, 9, 18, 0)");
-  grad.addColorStop(1, "rgba(4, 9, 18, 0.82)");
+  grad.addColorStop(0, "rgba(0, 0, 0, 0)");
+  grad.addColorStop(1, "rgba(0, 0, 0, 0.82)");
   ctx.fillStyle = grad;
   ctx.fillRect(0, h * 0.6, w, h * 0.4);
 
@@ -187,10 +188,14 @@ export function createStripTexture(
         "3px";
     }
     ctx.font = `500 19px ${monoFamily()}`;
-    ctx.fillStyle = COLORS.strip;
     ctx.textBaseline = "middle";
     const label = `${project.themes[0].replace("-", " / ").toUpperCase()} — ${project.year}`;
-    ctx.fillText(label, 2, h / 2);
+    // solid page-bg backing so the label breaks the grid line behind it
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = COLORS.stripBg;
+    ctx.fillRect(0, 0, tw + 24, h);
+    ctx.fillStyle = COLORS.strip;
+    ctx.fillText(label, 8, h / 2);
   };
 
   draw();
