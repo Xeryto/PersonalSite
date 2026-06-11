@@ -10,6 +10,7 @@ export interface Project {
   tech: string[];
   github?: string;
   cover: string;
+  video?: string;
   rank: number;
 }
 
@@ -34,6 +35,7 @@ export const projects: Project[] = [
     tech: ["Swift", "FastAPI", "Google Vision API", "MathPix", "Llama (Groq)"],
     github: "https://github.com/Quillin-Writing-App/backend",
     cover: "/covers/quillin.jpg",
+    video: "/covers/quillin.mp4",
     rank: 1,
   },
   {
@@ -47,6 +49,7 @@ export const projects: Project[] = [
     tech: ["C#", "ASP.NET", "Entity Framework", "MongoDB", "AWS EC2"],
     github: "https://github.com/Xeryto/Priceless",
     cover: "/covers/pricelessedu.jpg",
+    video: "/covers/pricelessedu.mp4",
     rank: 2,
   },
   {
@@ -60,6 +63,7 @@ export const projects: Project[] = [
     tech: ["TypeScript", "React Native", "React", "Python", "FastAPI"],
     github: "https://github.com/Xeryto/PolkaMono",
     cover: "/covers/polkamono.jpg",
+    video: "/covers/polkamono.mp4",
     rank: 3,
   },
   {
@@ -73,6 +77,7 @@ export const projects: Project[] = [
     tech: ["TypeScript", "Chrome APIs", "OAuth2", "CalDAV"],
     github: "https://github.com/Xeryto/subitupExtension",
     cover: "/covers/subitup-extension.jpg",
+    video: "/covers/subitup-extension.mp4",
     rank: 4,
   },
   {
@@ -85,6 +90,7 @@ export const projects: Project[] = [
     year: 2025,
     tech: ["Go", "Docker", "Playwright", "Jenkins", "AWS"],
     cover: "/covers/mailchimp-ci-triage.jpg",
+    video: "/covers/mailchimp-ci-triage.mp4",
     rank: 5,
   },
   {
@@ -98,6 +104,7 @@ export const projects: Project[] = [
     tech: ["Python", "NumPy", "Pandas", "Scikit-Learn", "Jupyter"],
     github: "https://github.com/Xeryto/anomaliesDetector",
     cover: "/covers/anomalies-detector.jpg",
+    video: "/covers/anomalies-detector.mp4",
     rank: 6,
   },
   {

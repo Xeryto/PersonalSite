@@ -1,133 +1,101 @@
 import * as THREE from "three";
 import type { Project } from "@/lib/projects";
 
-const SANS = `"Inter", -apple-system, "Segoe UI", sans-serif`;
-const MONO = `"JetBrains Mono", "SF Mono", Menlo, monospace`;
-
 const COLORS = {
-  card: "#11203a",
-  coverFallback: "#182b4d",
-  border: "rgba(228, 234, 245, 0.10)",
-  title: "#e4eaf5",
-  subtitle: "#8593ad",
-  meta: "#56627d",
-  chipBorder: "rgba(228, 234, 245, 0.16)",
-  chipText: "#8593ad",
+  coverFallback: "#11203a",
+  coverFallbackEnd: "#182b4d",
+  border: "rgba(228, 234, 245, 0.12)",
+  caption: "#e4eaf5",
+  meta: "#8593ad",
+  strip: "#56627d",
 };
 
-function roundedRectPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+let monoCache: string | null = null;
+function monoFamily(): string {
+  if (!monoCache) {
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue("--font-geist")
+      .trim();
+    monoCache = v ? `${v}, monospace` : `"Geist Mono", "SF Mono", Menlo, monospace`;
+  }
+  return monoCache;
 }
 
-function draw(
+function coverFit(
   ctx: CanvasRenderingContext2D,
-  project: Project,
+  source: CanvasImageSource,
+  sw: number,
+  sh: number,
   w: number,
-  h: number,
-  cover: HTMLImageElement | null
+  h: number
 ) {
-  const s = w / 1024; // scale factor relative to design size
-  ctx.clearRect(0, 0, w, h);
-
-  const radius = 28 * s;
-  roundedRectPath(ctx, 0, 0, w, h, radius);
-  ctx.save();
-  ctx.clip();
-
-  // card base
-  ctx.fillStyle = COLORS.card;
-  ctx.fillRect(0, 0, w, h);
-
-  // cover area (top ~62%)
-  const coverH = Math.round(h * 0.62);
-  if (cover) {
-    const imgRatio = cover.width / cover.height;
-    const areaRatio = w / coverH;
-    let dw = w;
-    let dh = coverH;
-    if (imgRatio > areaRatio) {
-      dw = coverH * imgRatio;
-    } else {
-      dh = w / imgRatio;
-    }
-    ctx.drawImage(cover, (w - dw) / 2, (coverH - dh) / 2, dw, dh);
+  const srcRatio = sw / sh;
+  const dstRatio = w / h;
+  let dw = w;
+  let dh = h;
+  if (srcRatio > dstRatio) {
+    dw = h * srcRatio;
   } else {
-    const grad = ctx.createLinearGradient(0, 0, w, coverH);
-    grad.addColorStop(0, COLORS.coverFallback);
-    grad.addColorStop(1, COLORS.card);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, coverH);
+    dh = w / srcRatio;
   }
+  ctx.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
 
-  // text block
-  const pad = 44 * s;
-  let cursorY = coverH + 62 * s;
+/** Scrim + caption + hairline border, pre-rendered once so video frames
+ *  can be composited per-frame with just two drawImage calls. */
+function buildOverlay(project: Project, w: number, h: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  const s = w / 1024;
 
-  ctx.fillStyle = COLORS.title;
-  ctx.font = `600 ${46 * s}px ${SANS}`;
+  const grad = ctx.createLinearGradient(0, h * 0.6, 0, h);
+  grad.addColorStop(0, "rgba(4, 9, 18, 0)");
+  grad.addColorStop(1, "rgba(4, 9, 18, 0.82)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, h * 0.6, w, h * 0.4);
+
+  const pad = 34 * s;
+  const baseline = h - 32 * s;
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(project.title, pad, cursorY, w - pad * 2);
-
-  cursorY += 44 * s;
-  ctx.fillStyle = COLORS.subtitle;
-  ctx.font = `400 ${27 * s}px ${SANS}`;
-  ctx.fillText(project.subtitle, pad, cursorY, w - pad * 2);
-
-  // bottom meta row: theme chips left, year right
-  const chipFontSize = 19 * s;
-  const chipH = 38 * s;
-  const chipY = h - pad - chipH;
-  ctx.font = `500 ${chipFontSize}px ${MONO}`;
-  let chipX = pad;
-  for (const theme of project.themes.slice(0, 3)) {
-    const label = theme.toUpperCase();
-    const tw = ctx.measureText(label).width;
-    const chipW = tw + 28 * s;
-    roundedRectPath(ctx, chipX, chipY, chipW, chipH, chipH / 2);
-    ctx.strokeStyle = COLORS.chipBorder;
-    ctx.lineWidth = 1.5 * s;
-    ctx.stroke();
-    ctx.fillStyle = COLORS.chipText;
-    ctx.fillText(label, chipX + 14 * s, chipY + chipH / 2 + chipFontSize * 0.36);
-    chipX += chipW + 12 * s;
+  if ("letterSpacing" in ctx) {
+    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+      `${2 * s}px`;
   }
 
+  ctx.font = `500 ${23 * s}px ${monoFamily()}`;
   ctx.fillStyle = COLORS.meta;
-  ctx.font = `500 ${21 * s}px ${MONO}`;
   const yearText = String(project.year);
   const yearW = ctx.measureText(yearText).width;
-  ctx.fillText(yearText, w - pad - yearW, chipY + chipH / 2 + 21 * s * 0.36);
+  ctx.fillText(yearText, w - pad - yearW, baseline);
 
-  ctx.restore();
+  ctx.fillStyle = COLORS.caption;
+  ctx.fillText(
+    project.title.toUpperCase(),
+    pad,
+    baseline,
+    w - pad * 3 - yearW
+  );
 
-  // hairline border
-  roundedRectPath(ctx, 0.75, 0.75, w - 1.5, h - 1.5, radius);
   ctx.strokeStyle = COLORS.border;
-  ctx.lineWidth = 1.5 * s;
-  ctx.stroke();
+  ctx.lineWidth = Math.max(1.5, 2 * s);
+  ctx.strokeRect(0, 0, w, h);
+
+  return canvas;
 }
 
 export interface TileTexture {
   texture: THREE.CanvasTexture;
+  /** Composite a playing video frame under the cached caption overlay. */
+  drawVideo: (video: HTMLVideoElement) => void;
   dispose: () => void;
 }
 
 /**
- * Builds a CanvasTexture for a project tile. Renders immediately with a
- * placeholder cover, then re-composites once the cover image loads.
+ * Builds a CanvasTexture for a project tile: full-bleed cover under a
+ * scrim/caption overlay. Renders a placeholder immediately, re-composites
+ * when the cover image and the web fonts load.
  */
 export function createTileTexture(
   project: Project,
@@ -141,21 +109,108 @@ export function createTileTexture(
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
-  draw(ctx, project, width, height, null);
+  let overlay = buildOverlay(project, width, height);
+  let coverImg: HTMLImageElement | null = null;
+  let disposed = false;
+
+  const draw = () => {
+    if (coverImg) {
+      coverFit(ctx, coverImg, coverImg.width, coverImg.height, width, height);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, width, height);
+      grad.addColorStop(0, COLORS.coverFallbackEnd);
+      grad.addColorStop(1, COLORS.coverFallback);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.drawImage(overlay, 0, 0);
+  };
+
+  draw();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = anisotropy;
+
+  const refresh = () => {
+    if (disposed) return;
+    draw();
+    texture.needsUpdate = true;
+    onUpgrade();
+  };
+
+  const img = new Image();
+  img.onload = () => {
+    coverImg = img;
+    refresh();
+  };
+  img.src = project.cover;
+
+  document.fonts.ready.then(() => {
+    if (disposed) return;
+    overlay = buildOverlay(project, width, height);
+    refresh();
+  });
+
+  return {
+    texture,
+    drawVideo: (video) => {
+      if (disposed || video.readyState < 2) return;
+      coverFit(ctx, video, video.videoWidth, video.videoHeight, width, height);
+      ctx.drawImage(overlay, 0, 0);
+      texture.needsUpdate = true;
+    },
+    dispose: () => {
+      disposed = true;
+      texture.dispose();
+    },
+  };
+}
+
+export interface StripTexture {
+  texture: THREE.CanvasTexture;
+  dispose: () => void;
+}
+
+/** Mono metadata strip ("THEME — YEAR") shown in the gap below a tile. */
+export function createStripTexture(
+  project: Project,
+  anisotropy: number,
+  onUpgrade: () => void
+): StripTexture {
+  const w = 512;
+  const h = 40;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  const draw = () => {
+    ctx.clearRect(0, 0, w, h);
+    if ("letterSpacing" in ctx) {
+      (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+        "3px";
+    }
+    ctx.font = `500 19px ${monoFamily()}`;
+    ctx.fillStyle = COLORS.strip;
+    ctx.textBaseline = "middle";
+    const label = `${project.themes[0].replace("-", " / ").toUpperCase()} — ${project.year}`;
+    ctx.fillText(label, 2, h / 2);
+  };
+
+  draw();
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = anisotropy;
 
   let disposed = false;
-  const img = new Image();
-  img.onload = () => {
+  document.fonts.ready.then(() => {
     if (disposed) return;
-    draw(ctx, project, width, height, img);
+    draw();
     texture.needsUpdate = true;
     onUpgrade();
-  };
-  img.src = project.cover;
+  });
 
   return {
     texture,

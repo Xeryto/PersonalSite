@@ -37,8 +37,8 @@ export default function ClockWidget() {
       {CITIES.map(({ label, tz }) => {
         const c = now ? formatCity(tz, now) : null;
         return (
-          <div key={tz} className="clock clock--home">
-            <span className="clock__dot" aria-hidden="true" />
+          <div key={tz} className="clock">
+            <span className="clock__pulse" aria-hidden="true" />
             <span className="clock__city">{label}</span>
             <span className="clock__time">
               {c ? `${c.time} ${c.offset}` : "--:--"}

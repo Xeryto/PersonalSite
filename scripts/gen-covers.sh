@@ -3,26 +3,27 @@
 set -u
 cd "$(dirname "$0")/.."
 
-SUFFIX="Deep dark navy background, single luminous geometric composition, thin white and pale-blue line work with one muted %HUE% glow, subtle film grain, generous negative space, flat 2D vector style, no text, no letters, no logos, no UI screenshots."
+SUFFIX="Minimal editorial 3D render, single bold %HUE% subject on a near-black matte studio ground, soft cinematic key light, generous negative space, subtle film grain, photographic depth, no text, no letters, no logos, no people."
 
 rows=(
-  "pricelessedu|sapphire blue|stacked translucent rectangular planes forming an ascending lattice of light"
-  "polkamono|ice cyan|three rounded rectangles like garments on a rail, orbiting a shared seam of light"
-  "subitup-extension|steel blue|interlocking calendar grid squares flowing into a smooth synchronized wave"
-  "mailchimp-ci-triage|steel blue|a pipeline of luminous segments with one faulty segment isolated and re-lit"
-  "anomalies-detector|violet|a smooth signal line with one glowing outlier point above scattered faint data dots"
-  "node-rest-api|teal|branching thin glowing conduits converging into a single luminous node"
-  "smart-sprinkler|violet|concentric arcs of fine water-drop particles intersected by a detection reticle"
-  "ibiblee-telebot|steel blue|a constellation of chat bubbles connected by dotted message paths"
-  "dunno|teal|a loose stack of note cards dissolving into structured database rows"
-  "meeting-rooms-service|teal|an isometric grid of empty room cells with one softly lit reserved cell"
-  "coding-challenge|teal|a countdown ring encircling a compact block of glowing code-like lines"
-  "lifegame|soft gray|a cellular automata grid mid-evolution with a glider of lit cells crossing it"
-  "letovo-forest|ice cyan|minimal pine tree silhouettes inside a rounded phone outline"
-  "atlas|soft gray|thin meridian lines of an abstract globe folding into webpage frames"
-  "ocfp|soft gray|a wireframe garment on a hanger drawn in one continuous thin line"
-  "geometry-topics|soft gray|compass-drawn circles and triangle constructions overlapping faintly"
-  "juva|soft gray|a simple line-drawn bicycle assembling itself from scattered strokes"
+  "quillin|electric violet|a fountain pen nib mid-stroke, ink ribbon curling into glowing mathematical curves"
+  "pricelessedu|warm amber|a rising staircase of translucent glass slabs, the top slab glowing"
+  "polkamono|coral red|three sculptural garments floating on a chrome rail, fabric frozen mid-sway"
+  "subitup-extension|vivid cyan|interlocking calendar cubes flowing into a smooth synchronized wave"
+  "mailchimp-ci-triage|signal green|a glass pipeline of luminous segments with one faulty segment lifted out and re-lit"
+  "anomalies-detector|hot magenta|a smooth ribbon of data with one glowing outlier sphere rising above it"
+  "node-rest-api|deep teal|branching glass conduits converging into one luminous core node"
+  "smart-sprinkler|acid lime|an arc of suspended water droplets caught by a thin targeting reticle of light"
+  "ibiblee-telebot|sky blue|a constellation of glossy chat bubbles linked by dotted light paths"
+  "dunno|rich gold|a loose stack of paper cards dissolving into orderly floating database rows"
+  "meeting-rooms-service|fresh mint|an isometric grid of empty glass rooms with one softly lit occupied cell"
+  "coding-challenge|burnt vermilion|a countdown ring of light encircling a compact monolith of glowing code blocks"
+  "lifegame|phosphor green|a dark grid board with a glider of lit cells crossing it, long exposure trail"
+  "letovo-forest|deep emerald|miniature pine trees growing out of a smartphone-shaped slab of glass"
+  "atlas|warm sand|thin meridian rings of a desert-toned globe unfolding into floating page frames"
+  "ocfp|dusty rose|a single wireframe garment of light on a sculptural hanger"
+  "geometry-topics|ice blue|compass-drawn circles and a glowing triangle construction hovering over dark paper"
+  "juva|molten copper|a bicycle assembling itself from scattered metallic strokes, parts suspended mid-air"
 )
 
 for row in "${rows[@]}"; do
@@ -33,7 +34,7 @@ for row in "${rows[@]}"; do
   out="public/covers/${slug}.jpg"
   [ -s "$out" ] && { echo "skip $slug"; continue; }
 
-  prompt="Minimal abstract editorial cover art for a software project: ${motif}. ${SUFFIX//%HUE%/$hue}"
+  prompt="Cover art for a software project: ${motif}. ${SUFFIX//%HUE%/$hue}"
   echo "=== $slug"
   url=$(higgsfield generate create gpt_image_2 \
     --prompt "$prompt" \
@@ -41,7 +42,10 @@ for row in "${rows[@]}"; do
     --wait --wait-timeout 8m --json 2>/dev/null \
     | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["result_url"])')
   if [ -n "$url" ]; then
-    curl -s -o "$out" "$url" && echo "saved $out"
+    tmp="public/covers/${slug}.dl"
+    curl -s -o "$tmp" "$url" \
+      && sips -s format jpeg -s formatOptions 82 "$tmp" --out "$out" >/dev/null \
+      && rm -f "$tmp" && echo "saved $out"
   else
     echo "FAILED $slug"
   fi
