@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "@/lib/gsap-init";
 
+const HOVERABLE = "a, button, [data-cursor-label]";
+
 export default function CustomCursor() {
   const dotRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
@@ -41,10 +43,14 @@ export default function CustomCursor() {
     };
     const ringFrameId = requestAnimationFrame(updateRing);
 
-    const onEnter = (e: Event) => {
-      const el = e.currentTarget as HTMLElement;
-      const cursorLabel = el.getAttribute("data-cursor-label");
+    // Delegated hover handling so dynamically mounted views work
+    const onOver = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement).closest?.(
+        HOVERABLE
+      ) as HTMLElement | null;
+      if (!el || magneticEls.has(el)) return;
 
+      const cursorLabel = el.getAttribute("data-cursor-label");
       if (cursorLabel) {
         label.textContent = cursorLabel;
         label.style.opacity = "1";
@@ -54,8 +60,14 @@ export default function CustomCursor() {
       magneticEls.add(el);
     };
 
-    const onLeave = (e: Event) => {
-      const el = e.currentTarget as HTMLElement;
+    const onOut = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement).closest?.(
+        HOVERABLE
+      ) as HTMLElement | null;
+      if (!el || !magneticEls.has(el)) return;
+      const to = e.relatedTarget as Node | null;
+      if (to && el.contains(to)) return;
+
       label.style.opacity = "0";
       ring.classList.remove("cursor-ring--hover");
       magneticEls.delete(el);
@@ -96,24 +108,16 @@ export default function CustomCursor() {
     };
 
     window.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseover", onOver);
+    document.addEventListener("mouseout", onOut);
     const frameId = requestAnimationFrame(onFrame);
-
-    const hoverables = document.querySelectorAll(
-      "[data-cursor-label], a, button"
-    );
-    hoverables.forEach((el) => {
-      el.addEventListener("mouseenter", onEnter);
-      el.addEventListener("mouseleave", onLeave);
-    });
 
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseover", onOver);
+      document.removeEventListener("mouseout", onOut);
       cancelAnimationFrame(frameId);
       cancelAnimationFrame(ringFrameId);
-      hoverables.forEach((el) => {
-        el.removeEventListener("mouseenter", onEnter);
-        el.removeEventListener("mouseleave", onLeave);
-      });
     };
   }, []);
 
