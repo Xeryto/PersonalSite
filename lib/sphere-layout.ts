@@ -1,15 +1,22 @@
+import * as THREE from "three";
+
 export const SPHERE_RADIUS = 10;
-export const TILE_WIDTH = 4.75;
-export const TILE_HEIGHT = 3.3;
 
-// Dense phantom-style grid: 5 latitude bands, longitude count scaled by
-// cos(lat) so arc-length spacing stays even toward the poles.
-const LAT_BANDS = [44, 22, 0, -22, -44];
-const EQUATOR_COUNT = 12;
+// Uniform angular grid, phantom-style: every cell spans the same angular
+// extent, so columns align across rows and all cells subtend equal angles
+// from the camera at the sphere's center. Cards are curved sphere patches
+// filling their cell; the remainder is the gutter where grid lines run.
+export const CELL_LAT = 22;
+export const CELL_LON = 30;
+export const PATCH_LAT_SPAN = 19.5;
+export const PATCH_LON_SPAN = 27.5;
+export const LAT_BANDS = [44, 22, 0, -22, -44];
+export const COLS = 360 / CELL_LON;
 
-// Mono metadata strip sits centered in the 3° gap below each tile
-// (tile spans ±9.5° of its band, next band starts 12.5° away).
-export const STRIP_LAT_OFFSET = -11;
+// Mono metadata strip sits ON the row-boundary grid line below each card.
+export const STRIP_LAT_OFFSET = -CELL_LAT / 2;
+export const STRIP_LAT_SPAN = 2.2;
+export const STRIP_LON_SPAN = 26;
 
 export interface Slot {
   position: [number, number, number];
@@ -34,24 +41,68 @@ export function slotPosition(
 }
 
 /**
- * ~52 slots (9/11/12/11/9 per band), each band offset so no two rows'
- * columns align (brick stagger). Sorted by angular distance from the
- * initial forward vector (0,0,-1) so index 0 is the most prominent slot.
+ * 5 bands x 12 aligned columns = 60 cells, sorted by angular distance from
+ * the initial forward vector (0,0,-1) so index 0 is the most prominent slot.
  */
 export function generateSlots(): Slot[] {
   const slots: Slot[] = [];
-  LAT_BANDS.forEach((lat, bandIndex) => {
-    const count = Math.round(EQUATOR_COUNT * Math.cos(lat * DEG));
-    const step = 360 / count;
-    const offset = bandIndex % 2 === 1 ? step / 2 : 0;
-    for (let i = 0; i < count; i++) {
-      const lon = offset + i * step;
+  for (const lat of LAT_BANDS) {
+    for (let i = 0; i < COLS; i++) {
+      const lon = i * CELL_LON;
       const position = slotPosition(lat, lon);
       const angularDist = Math.acos(
         Math.min(1, Math.max(-1, -position[2] / SPHERE_RADIUS))
       );
       slots.push({ position, angularDist, lat, lon });
     }
-  });
+  }
   return slots.sort((a, b) => a.angularDist - b.angularDist);
+}
+
+/**
+ * Curved sphere patch spanning an angular cell, built at lon 0 with vertex
+ * positions relative to the cell-center point so meshes can be placed with
+ * `position = slotPosition(lat, lon)` + `rotation.y = -lon` and hover
+ * scaling pivots about the card center. Front faces point at the camera
+ * inside the sphere.
+ */
+export function createPatchGeometry(
+  latCenterDeg: number,
+  latSpanDeg: number,
+  lonSpanDeg: number,
+  segsX = 8,
+  segsY = 6
+): THREE.BufferGeometry {
+  const center = slotPosition(latCenterDeg, 0);
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  for (let iy = 0; iy <= segsY; iy++) {
+    const lat = latCenterDeg + latSpanDeg / 2 - (iy * latSpanDeg) / segsY;
+    for (let ix = 0; ix <= segsX; ix++) {
+      const lon = -lonSpanDeg / 2 + (ix * lonSpanDeg) / segsX;
+      const p = slotPosition(lat, lon);
+      positions.push(p[0] - center[0], p[1] - center[1], p[2] - center[2]);
+      uvs.push(ix / segsX, 1 - iy / segsY);
+    }
+  }
+  for (let iy = 0; iy < segsY; iy++) {
+    for (let ix = 0; ix < segsX; ix++) {
+      const a = iy * (segsX + 1) + ix;
+      const b = a + 1;
+      const c = a + segsX + 1;
+      const d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3)
+  );
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  return geometry;
 }

@@ -7,9 +7,16 @@ import { projects as allProjects, type Project, type Theme } from "@/lib/project
 import {
   generateSlots,
   slotPosition,
+  createPatchGeometry,
+  LAT_BANDS,
+  CELL_LAT,
+  CELL_LON,
+  COLS,
+  PATCH_LAT_SPAN,
+  PATCH_LON_SPAN,
   STRIP_LAT_OFFSET,
-  TILE_WIDTH,
-  TILE_HEIGHT,
+  STRIP_LAT_SPAN,
+  STRIP_LON_SPAN,
 } from "@/lib/sphere-layout";
 import {
   createTileTexture,
@@ -30,16 +37,9 @@ interface TileData {
   project: Project;
 }
 
-const ORIGIN = new THREE.Vector3(0, 0, 0);
-const UP = new THREE.Vector3(0, 1, 0);
 const FORWARD = new THREE.Vector3(0, 0, -1);
-
-function slotQuaternion(position: THREE.Vector3): THREE.Quaternion {
-  // Matrix4.lookAt builds +Z = eye - target; eye must be the origin so the
-  // tile's front (+Z) faces the camera at the sphere's center.
-  const m = new THREE.Matrix4().lookAt(ORIGIN, position, UP);
-  return new THREE.Quaternion().setFromRotationMatrix(m);
-}
+const DEG = Math.PI / 180;
+const GRID_COLOR = 0x475673;
 
 export default function WorkSphere({
   activeThemes,
@@ -64,7 +64,11 @@ export default function WorkSphere({
     ).matches;
     const isNarrow = window.innerWidth < 768;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isNarrow,
+      alpha: true,
+      powerPreference: "high-performance",
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isNarrow ? 1.5 : 1.75));
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
@@ -79,15 +83,47 @@ export default function WorkSphere({
     camera.position.set(0, 0, 0);
 
     const group = new THREE.Group();
+    const gridGroup = new THREE.Group();
     const tileGroup = new THREE.Group();
     const stripGroup = new THREE.Group();
-    group.add(tileGroup, stripGroup);
+    group.add(gridGroup, tileGroup, stripGroup);
     scene.add(group);
 
     let wakeUntil = 0;
     const requestRender = (ms = 300) => {
       wakeUntil = Math.max(wakeUntil, performance.now() + ms);
     };
+
+    // --- explicit grid: lat circles + meridian arcs in the cell gutters ---
+    const latBoundaries = LAT_BANDS.map((lat) => lat + CELL_LAT / 2);
+    latBoundaries.push(LAT_BANDS[LAT_BANDS.length - 1] - CELL_LAT / 2);
+    const latTop = latBoundaries[0];
+    const latBot = latBoundaries[latBoundaries.length - 1];
+
+    const gridMaterial = new THREE.LineBasicMaterial({ color: GRID_COLOR });
+    const gridGeometries: THREE.BufferGeometry[] = [];
+    for (const lat of latBoundaries) {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i < 128; i++) {
+        pts.push(
+          new THREE.Vector3(...slotPosition(lat, (i * 360) / 128)).multiplyScalar(1.004)
+        );
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      gridGeometries.push(geo);
+      gridGroup.add(new THREE.LineLoop(geo, gridMaterial));
+    }
+    for (let k = 0; k < COLS; k++) {
+      const lon = CELL_LON / 2 + k * CELL_LON;
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 48; i++) {
+        const lat = latTop + ((latBot - latTop) * i) / 48;
+        pts.push(new THREE.Vector3(...slotPosition(lat, lon)).multiplyScalar(1.004));
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      gridGeometries.push(geo);
+      gridGroup.add(new THREE.Line(geo, gridMaterial));
+    }
 
     // --- shared per-project resources (slots repeat the 18 projects) ---
     const slots = generateSlots();
@@ -120,24 +156,30 @@ export default function WorkSphere({
       }
     }
 
-    const geometry = new THREE.PlaneGeometry(TILE_WIDTH, TILE_HEIGHT);
-    const stripGeometry = new THREE.PlaneGeometry(
-      TILE_WIDTH,
-      TILE_WIDTH * (40 / 512)
-    );
+    // curved sphere-patch geometries, one per band (shared by its columns)
+    const patchGeos = new Map<number, THREE.BufferGeometry>();
+    const stripGeos = new Map<number, THREE.BufferGeometry>();
+    for (const lat of LAT_BANDS) {
+      patchGeos.set(lat, createPatchGeometry(lat, PATCH_LAT_SPAN, PATCH_LON_SPAN));
+      stripGeos.set(
+        lat,
+        createPatchGeometry(lat + STRIP_LAT_OFFSET, STRIP_LAT_SPAN, STRIP_LON_SPAN, 8, 1)
+      );
+    }
 
     const tiles = slots.map((slot, i) => {
       const project = ranked[i % ranked.length];
+      const rotY = -slot.lon * DEG;
+
       const material = new THREE.MeshBasicMaterial({
         map: textures.get(project.slug)!.texture,
         transparent: true,
         side: THREE.FrontSide,
         opacity: slot.angularDist > 1.745 ? 0.08 : 1,
       });
-      const mesh = new THREE.Mesh(geometry, material);
-      const pos = new THREE.Vector3(...slot.position);
-      mesh.position.copy(pos);
-      mesh.quaternion.copy(slotQuaternion(pos));
+      const mesh = new THREE.Mesh(patchGeos.get(slot.lat)!, material);
+      mesh.position.set(...slot.position);
+      mesh.rotation.y = rotY;
       mesh.userData = { project } satisfies TileData;
       tileGroup.add(mesh);
 
@@ -147,12 +189,9 @@ export default function WorkSphere({
         opacity: 0,
         depthWrite: false,
       });
-      const strip = new THREE.Mesh(stripGeometry, stripMaterial);
-      const sPos = new THREE.Vector3(
-        ...slotPosition(slot.lat + STRIP_LAT_OFFSET, slot.lon)
-      );
-      strip.position.copy(sPos);
-      strip.quaternion.copy(slotQuaternion(sPos));
+      const strip = new THREE.Mesh(stripGeos.get(slot.lat)!, stripMaterial);
+      strip.position.set(...slotPosition(slot.lat + STRIP_LAT_OFFSET, slot.lon));
+      strip.rotation.y = rotY;
       stripGroup.add(strip);
 
       return { mesh, material, strip, stripMaterial, project };
@@ -164,7 +203,7 @@ export default function WorkSphere({
     let targetYaw = 0;
     let targetPitch = 0;
     let inertia = 0;
-    const PITCH_LIMIT = 0.4;
+    const PITCH_LIMIT = 0.43;
     const clampPitch = (v: number) =>
       Math.min(PITCH_LIMIT, Math.max(-PITCH_LIMIT, v));
 
@@ -184,6 +223,15 @@ export default function WorkSphere({
           delay: 0.15 + i * 0.018,
           onUpdate: () => requestRender(),
         });
+      });
+      gridMaterial.color.setHex(0x0a1426);
+      gsap.to(gridMaterial.color, {
+        r: ((GRID_COLOR >> 16) & 255) / 255,
+        g: ((GRID_COLOR >> 8) & 255) / 255,
+        b: (GRID_COLOR & 255) / 255,
+        duration: 1.2,
+        delay: 0.3,
+        onUpdate: () => requestRender(),
       });
       const rot = { y: -0.14 };
       yaw = targetYaw = rot.y;
@@ -331,7 +379,6 @@ export default function WorkSphere({
       let bestDot = -Infinity;
       const wp = new THREE.Vector3();
       for (const { mesh } of tiles) {
-        if (!mesh.visible) continue;
         mesh.getWorldPosition(wp);
         const dot = wp.normalize().dot(FORWARD);
         if (dot > bestDot) {
@@ -342,7 +389,7 @@ export default function WorkSphere({
       if (best) onSelectRef.current(best.userData.project as Project);
     };
 
-    // Filtering never empties slots: every tile crossfades to a project
+    // Filtering never empties cells: every tile crossfades to a project
     // from the matching set, so the grid stays packed edge to edge.
     applyFilterRef.current = (themes: Theme[]) => {
       const matches = (p: Project) =>
@@ -390,11 +437,24 @@ export default function WorkSphere({
       setHover(null);
     };
 
-    // --- frame loop (render on demand; stays awake while a video plays) ---
+    // --- video scheduling: rVFC-driven compositing, max 2 playing ---
+    const vfcToken = new Map<string, number>();
+    const startVfc = (slug: string, video: HTMLVideoElement) => {
+      const token = (vfcToken.get(slug) ?? 0) + 1;
+      vfcToken.set(slug, token);
+      const tick = () => {
+        if (vfcToken.get(slug) !== token || video.paused) return;
+        textures.get(slug)!.drawVideo(video);
+        requestRender(80);
+        video.requestVideoFrameCallback(tick);
+      };
+      video.requestVideoFrameCallback(tick);
+    };
+
+    // --- frame loop (render on demand) ---
     const clock = new THREE.Clock();
     const wp = new THREE.Vector3();
     const videoDots = new Map<string, number>();
-    let videoPlaying = false;
     let rafId = 0;
 
     const frame = () => {
@@ -412,7 +472,7 @@ export default function WorkSphere({
       const moving =
         Math.abs(targetYaw - yaw) > 0.0001 ||
         Math.abs(targetPitch - pitch) > 0.0001;
-      if (!moving && !videoPlaying && performance.now() > wakeUntil) return;
+      if (!moving && performance.now() > wakeUntil) return;
 
       const k = 1 - Math.exp(-5 * dt);
       yaw += (targetYaw - yaw) * k;
@@ -436,19 +496,28 @@ export default function WorkSphere({
         }
       }
 
-      videoPlaying = false;
+      // play only the two front-most videos
+      let first: string | null = null;
+      let second: string | null = null;
+      for (const [slug, dot] of videoDots) {
+        if (dot <= 0.6) continue;
+        if (first === null || dot > videoDots.get(first)!) {
+          second = first;
+          first = slug;
+        } else if (second === null || dot > videoDots.get(second)!) {
+          second = slug;
+        }
+      }
       for (const [slug, video] of videos) {
-        const dot = videoDots.get(slug) ?? -1;
         const shouldPlay =
-          modeRef.current === "active" && !document.hidden && dot > 0.45;
+          modeRef.current === "active" &&
+          !document.hidden &&
+          (slug === first || slug === second);
         if (shouldPlay && video.paused) {
           video.play().catch(() => {});
+          startVfc(slug, video);
         } else if (!shouldPlay && !video.paused) {
           video.pause();
-        }
-        if (!video.paused) {
-          textures.get(slug)!.drawVideo(video);
-          videoPlaying = true;
         }
       }
 
@@ -485,10 +554,13 @@ export default function WorkSphere({
         material.dispose();
         stripMaterial.dispose();
       });
+      gsap.killTweensOf(gridMaterial.color);
       textures.forEach((t) => t.dispose());
       stripTextures.forEach((t) => t.dispose());
-      geometry.dispose();
-      stripGeometry.dispose();
+      patchGeos.forEach((g) => g.dispose());
+      stripGeos.forEach((g) => g.dispose());
+      gridGeometries.forEach((g) => g.dispose());
+      gridMaterial.dispose();
       renderer.dispose();
       container.removeChild(el);
     };
@@ -507,7 +579,8 @@ export default function WorkSphere({
   // keyboard navigation
   useEffect(() => {
     if (mode !== "active") return;
-    const STEP = Math.PI / 6;
+    const STEP = (CELL_LON * Math.PI) / 180;
+    const PITCH_STEP = (CELL_LAT * Math.PI) / 180;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && e.target.tagName === "BUTTON")
         return;
@@ -519,10 +592,10 @@ export default function WorkSphere({
           rotateByRef.current(-STEP, 0);
           break;
         case "ArrowUp":
-          rotateByRef.current(0, -0.38);
+          rotateByRef.current(0, -PITCH_STEP);
           break;
         case "ArrowDown":
-          rotateByRef.current(0, 0.38);
+          rotateByRef.current(0, PITCH_STEP);
           break;
         case "Enter":
           openFrontRef.current();

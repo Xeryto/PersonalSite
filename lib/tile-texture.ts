@@ -4,7 +4,6 @@ import type { Project } from "@/lib/projects";
 const COLORS = {
   coverFallback: "#11203a",
   coverFallbackEnd: "#182b4d",
-  border: "rgba(228, 234, 245, 0.12)",
   caption: "#e4eaf5",
   meta: "#8593ad",
   strip: "#56627d",
@@ -77,10 +76,6 @@ function buildOverlay(project: Project, w: number, h: number): HTMLCanvasElement
     baseline,
     w - pad * 3 - yearW
   );
-
-  ctx.strokeStyle = COLORS.border;
-  ctx.lineWidth = Math.max(1.5, 2 * s);
-  ctx.strokeRect(0, 0, w, h);
 
   return canvas;
 }
