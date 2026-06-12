@@ -60,12 +60,41 @@ export function generateSlots(): Slot[] {
 }
 
 /**
- * Curved sphere patch spanning an angular cell, built at lon 0 with vertex
- * positions relative to the cell-center point so meshes can be placed with
+ * Re-projects a patch's vertices for the latitude it currently appears at.
+ * Pitch is NOT a rigid rotation of the sphere: band patches aren't congruent
+ * (physical width shrinks with cos(lat)), so rotating them makes row
+ * recycling visibly snap. Instead the patch is rebuilt from its visual
+ * latitude every frame — its shape is then purely a function of where it
+ * appears, which makes the 22° row-recycle wrap exactly seamless.
+ * Vertices are relative to the cell-center point so meshes are placed with
  * `position = slotPosition(lat, lon)` + `rotation.y = -lon` and hover
- * scaling pivots about the card center. Front faces point at the camera
- * inside the sphere.
+ * scaling pivots about the card center.
  */
+export function writePatchPositions(
+  geometry: THREE.BufferGeometry,
+  latCenterDeg: number,
+  latSpanDeg: number,
+  lonSpanDeg: number,
+  segsX = 8,
+  segsY = 6
+): void {
+  const center = slotPosition(latCenterDeg, 0);
+  const attr = geometry.getAttribute("position") as THREE.BufferAttribute;
+  let i = 0;
+  for (let iy = 0; iy <= segsY; iy++) {
+    const lat = latCenterDeg + latSpanDeg / 2 - (iy * latSpanDeg) / segsY;
+    for (let ix = 0; ix <= segsX; ix++) {
+      const lon = -lonSpanDeg / 2 + (ix * lonSpanDeg) / segsX;
+      const p = slotPosition(lat, lon);
+      attr.setXYZ(i++, p[0] - center[0], p[1] - center[1], p[2] - center[2]);
+    }
+  }
+  attr.needsUpdate = true;
+  geometry.computeBoundingSphere();
+}
+
+/** Curved sphere patch spanning an angular cell; front faces the camera
+ *  inside the sphere. Positions are (re)written via writePatchPositions. */
 export function createPatchGeometry(
   latCenterDeg: number,
   latSpanDeg: number,
@@ -73,17 +102,10 @@ export function createPatchGeometry(
   segsX = 8,
   segsY = 6
 ): THREE.BufferGeometry {
-  const center = slotPosition(latCenterDeg, 0);
-  const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-
   for (let iy = 0; iy <= segsY; iy++) {
-    const lat = latCenterDeg + latSpanDeg / 2 - (iy * latSpanDeg) / segsY;
     for (let ix = 0; ix <= segsX; ix++) {
-      const lon = -lonSpanDeg / 2 + (ix * lonSpanDeg) / segsX;
-      const p = slotPosition(lat, lon);
-      positions.push(p[0] - center[0], p[1] - center[1], p[2] - center[2]);
       uvs.push(ix / segsX, 1 - iy / segsY);
     }
   }
@@ -100,9 +122,13 @@ export function createPatchGeometry(
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
-    new THREE.Float32BufferAttribute(positions, 3)
+    new THREE.Float32BufferAttribute(
+      new Array((segsX + 1) * (segsY + 1) * 3).fill(0),
+      3
+    )
   );
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
+  writePatchPositions(geometry, latCenterDeg, latSpanDeg, lonSpanDeg, segsX, segsY);
   return geometry;
 }

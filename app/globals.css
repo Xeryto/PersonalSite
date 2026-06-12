@@ -284,8 +284,28 @@ button {
     grid-template-columns: 1fr auto 1fr;
     align-items: start;
     gap: var(--space-md);
-    padding: var(--edge-pad);
+    padding: 0.9rem var(--edge-pad);
     pointer-events: none;
+}
+
+/* gradient-masked blur so header text stays readable over the canvas */
+.top-fade {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 130px;
+    z-index: 90;
+    pointer-events: none;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    mask-image: linear-gradient(to bottom, black 25%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 25%, transparent 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(10, 10, 11, 0.65),
+        rgba(10, 10, 11, 0)
+    );
 }
 
 .header > * {

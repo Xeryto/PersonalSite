@@ -8,6 +8,7 @@ import {
   generateSlots,
   slotPosition,
   createPatchGeometry,
+  writePatchPositions,
   LAT_BANDS,
   CELL_LAT,
   CELL_LON,
@@ -103,28 +104,52 @@ export default function WorkSphere({
 
     const gridMaterial = new THREE.LineBasicMaterial({ color: GRID_COLOR });
     const gridGeometries: THREE.BufferGeometry[] = [];
-    for (const lat of latBoundaries) {
-      const pts: THREE.Vector3[] = [];
-      for (let i = 0; i < 128; i++) {
-        pts.push(
-          new THREE.Vector3(...slotPosition(lat, (i * 360) / 128)).multiplyScalar(1.004)
-        );
-      }
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const CIRCLE_SEGS = 128;
+    const MERIDIAN_SEGS = 48;
+    const makeLineGeo = (count: number) => {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(new Array(count * 3).fill(0), 3)
+      );
       gridGeometries.push(geo);
+      return geo;
+    };
+    const latCircles = latBoundaries.map((lat) => {
+      const geo = makeLineGeo(CIRCLE_SEGS);
       gridGroup.add(new THREE.LineLoop(geo, gridMaterial));
-    }
-    for (let k = 0; k < COLS; k++) {
-      const lon = CELL_LON / 2 + k * CELL_LON;
-      const pts: THREE.Vector3[] = [];
-      for (let i = 0; i <= 48; i++) {
-        const lat = latTop + ((latBot - latTop) * i) / 48;
-        pts.push(new THREE.Vector3(...slotPosition(lat, lon)).multiplyScalar(1.004));
-      }
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      gridGeometries.push(geo);
+      return { geo, lat };
+    });
+    const meridians = Array.from({ length: COLS }, (_, k) => {
+      const geo = makeLineGeo(MERIDIAN_SEGS + 1);
       gridGroup.add(new THREE.Line(geo, gridMaterial));
-    }
+      return { geo, lon: CELL_LON / 2 + k * CELL_LON };
+    });
+
+    // grid follows the visual pitch (re-projected, like the cards)
+    const writeGrid = (pitchDeg: number) => {
+      for (const { geo, lat } of latCircles) {
+        const attr = geo.getAttribute("position") as THREE.BufferAttribute;
+        for (let i = 0; i < CIRCLE_SEGS; i++) {
+          const p = slotPosition(lat + pitchDeg, (i * 360) / CIRCLE_SEGS);
+          attr.setXYZ(i, p[0] * 1.004, p[1] * 1.004, p[2] * 1.004);
+        }
+        attr.needsUpdate = true;
+        geo.computeBoundingSphere();
+      }
+      for (const { geo, lon } of meridians) {
+        const attr = geo.getAttribute("position") as THREE.BufferAttribute;
+        for (let i = 0; i <= MERIDIAN_SEGS; i++) {
+          const lat =
+            latTop + pitchDeg + ((latBot - latTop) * i) / MERIDIAN_SEGS;
+          const p = slotPosition(lat, lon);
+          attr.setXYZ(i, p[0] * 1.004, p[1] * 1.004, p[2] * 1.004);
+        }
+        attr.needsUpdate = true;
+        geo.computeBoundingSphere();
+      }
+    };
+    writeGrid(0);
 
     // --- shared per-project resources (slots repeat the 18 projects) ---
     const slots = generateSlots();
@@ -481,6 +506,7 @@ export default function WorkSphere({
     const clock = new THREE.Clock();
     const wp = new THREE.Vector3();
     const videoDots = new Map<string, number>();
+    let lastPitchDeg = 0;
     let rafId = 0;
 
     const frame = () => {
@@ -511,9 +537,9 @@ export default function WorkSphere({
       yaw += (targetYaw - yaw) * k;
       pitch += (targetPitch - pitch) * k;
 
-      // endless vertical spin: physical pitch stays within half a cell while
-      // content shifts one row per crossing — the snap is frame-exact, so
-      // the rendered image is identical and the seam invisible.
+      // endless vertical spin: pitch stays within half a cell while content
+      // shifts one row per crossing. Geometry is re-projected from the
+      // visual latitude below, so the wrap is exactly seamless.
       let shifted = false;
       while (pitch > HALF_CELL_RAD) {
         pitch -= CELL_RAD;
@@ -529,7 +555,40 @@ export default function WorkSphere({
       }
       if (shifted) remap();
 
-      group.rotation.set(pitch, yaw, 0);
+      group.rotation.set(0, yaw, 0);
+
+      // vertical motion = re-projection, not rigid rotation (band patches
+      // aren't congruent; rotating them makes the row wrap visibly snap)
+      const pitchDeg = pitch / DEG;
+      if (pitchDeg !== lastPitchDeg) {
+        lastPitchDeg = pitchDeg;
+        for (const bandLat of LAT_BANDS) {
+          const vLat = bandLat + pitchDeg;
+          writePatchPositions(
+            patchGeos.get(bandLat)!,
+            vLat,
+            PATCH_LAT_SPAN,
+            PATCH_LON_SPAN
+          );
+          writePatchPositions(
+            stripGeos.get(bandLat)!,
+            vLat + STRIP_LAT_OFFSET,
+            STRIP_LAT_SPAN,
+            STRIP_LON_SPAN,
+            8,
+            1
+          );
+        }
+        for (const entry of tiles) {
+          const vLat = LAT_BANDS[entry.bandIdx] + pitchDeg;
+          const lon = entry.colIdx * CELL_LON;
+          entry.mesh.position.set(...slotPosition(vLat, lon));
+          entry.strip.position.set(
+            ...slotPosition(vLat + STRIP_LAT_OFFSET, lon)
+          );
+        }
+        writeGrid(pitchDeg);
+      }
 
       // fade tiles rotating behind the camera; strips track their tile
       videoDots.clear();

@@ -99,6 +99,7 @@ export default function Home() {
       </svg>
 
       <div className="noise-overlay" aria-hidden="true" />
+      <div className="top-fade" aria-hidden="true" />
       <CustomCursor />
       <HeaderBar />
 
