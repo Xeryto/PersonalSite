@@ -76,17 +76,31 @@ export function writePatchPositions(
   latSpanDeg: number,
   lonSpanDeg: number,
   segsX = 8,
-  segsY = 6
+  segsY = 6,
+  leanRad = 0
 ): void {
   const center = slotPosition(latCenterDeg, 0);
   const attr = geometry.getAttribute("position") as THREE.BufferAttribute;
+  const cosA = Math.cos(leanRad);
+  const sinA = Math.sin(leanRad);
   let i = 0;
   for (let iy = 0; iy <= segsY; iy++) {
     const lat = latCenterDeg + latSpanDeg / 2 - (iy * latSpanDeg) / segsY;
     for (let ix = 0; ix <= segsX; ix++) {
       const lon = -lonSpanDeg / 2 + (ix * lonSpanDeg) / segsX;
       const p = slotPosition(lat, lon);
-      attr.setXYZ(i++, p[0] - center[0], p[1] - center[1], p[2] - center[2]);
+      const ry = p[1] - center[1];
+      const rz = p[2] - center[2];
+      // lean about the card's horizontal center axis: amplifies the
+      // vertical curvature so off-equator rows visibly tip away (the
+      // camera sits at the sphere center, so without this every card
+      // faces it head-on and never foreshortens)
+      attr.setXYZ(
+        i++,
+        p[0] - center[0],
+        ry * cosA - rz * sinA,
+        ry * sinA + rz * cosA
+      );
     }
   }
   attr.needsUpdate = true;

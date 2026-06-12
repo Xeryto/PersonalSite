@@ -41,6 +41,10 @@ interface TileData {
 const FORWARD = new THREE.Vector3(0, 0, -1);
 const DEG = Math.PI / 180;
 const GRID_COLOR = 0x3a3e45;
+// vertical curvature amplification: how strongly rows tip away from the
+// camera per degree of visual latitude (camera sits at the sphere center,
+// so cards never foreshorten without it)
+const LEAN_K = 1.0;
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 export default function WorkSphere({
@@ -521,7 +525,7 @@ export default function WorkSphere({
     const clock = new THREE.Clock();
     const wp = new THREE.Vector3();
     const videoDots = new Map<string, number>();
-    let lastPitchDeg = 0;
+    let lastPitchDeg = Infinity; // force a first-frame write (applies lean)
     let rafId = 0;
 
     const frame = () => {
@@ -586,15 +590,20 @@ export default function WorkSphere({
             patchGeos.get(bandLat)!,
             vLat,
             PATCH_LAT_SPAN,
-            PATCH_LON_SPAN
+            PATCH_LON_SPAN,
+            8,
+            6,
+            -LEAN_K * vLat * DEG
           );
+          const sLat = vLat + STRIP_LAT_OFFSET;
           writePatchPositions(
             stripGeos.get(bandLat)!,
-            vLat + STRIP_LAT_OFFSET,
+            sLat,
             STRIP_LAT_SPAN,
             STRIP_LON_SPAN,
             8,
-            1
+            1,
+            -LEAN_K * sLat * DEG
           );
         }
         for (const entry of tiles) {
