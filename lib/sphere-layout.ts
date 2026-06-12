@@ -6,16 +6,19 @@ export const SPHERE_RADIUS = 10;
 // extent, so columns align across rows and all cells subtend equal angles
 // from the camera at the sphere's center. Cards are curved sphere patches
 // filling their cell; the remainder is the gutter where grid lines run.
-export const CELL_LAT = 22;
+// Short, wide rows (cards ~2:1) so several rows are on screen at once and
+// the progressive vertical tilt actually reads — 7 bands keep the row
+// recycle swap outside the viewport.
+export const CELL_LAT = 15;
 export const CELL_LON = 30;
-export const PATCH_LAT_SPAN = 17;
+export const PATCH_LAT_SPAN = 12.5;
 export const PATCH_LON_SPAN = 24.5;
-export const LAT_BANDS = [44, 22, 0, -22, -44];
+export const LAT_BANDS = [45, 30, 15, 0, -15, -30, -45];
 export const COLS = 360 / CELL_LON;
 
 // Mono metadata strip sits ON the row-boundary grid line below each card.
 export const STRIP_LAT_OFFSET = -CELL_LAT / 2;
-export const STRIP_LAT_SPAN = 2.2;
+export const STRIP_LAT_SPAN = 1.8;
 export const STRIP_LON_SPAN = 24.5;
 
 export interface Slot {

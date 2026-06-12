@@ -165,7 +165,7 @@ export default function WorkSphere({
     const slots = generateSlots();
     const ranked = [...allProjects].sort((a, b) => a.rank - b.rank);
     const texW = isNarrow ? 512 : 1024;
-    const texH = isNarrow ? 356 : 712;
+    const texH = isNarrow ? 260 : 520;
     const anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
     const textures = new Map<string, TileTexture>();
@@ -294,7 +294,7 @@ export default function WorkSphere({
           z: 1,
           duration: 0.9,
           ease: "expo.out",
-          delay: 0.15 + i * 0.018,
+          delay: 0.15 + i * 0.012,
           onUpdate: () => requestRender(),
         });
       });
