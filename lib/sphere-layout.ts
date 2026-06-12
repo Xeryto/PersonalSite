@@ -6,20 +6,19 @@ export const SPHERE_RADIUS = 10;
 // extent, so columns align across rows and all cells subtend equal angles
 // from the camera at the sphere's center. Cards are curved sphere patches
 // filling their cell; the remainder is the gutter where grid lines run.
-// Short, wide rows (cards ~2:1) so several rows are on screen at once and
-// the progressive vertical tilt actually reads — 7 bands keep the row
-// recycle swap outside the viewport.
-export const CELL_LAT = 15;
-export const CELL_LON = 30;
-export const PATCH_LAT_SPAN = 12.5;
-export const PATCH_LON_SPAN = 24.5;
-export const LAT_BANDS = [45, 30, 15, 0, -15, -30, -45];
+// Half-scale cells (24 cols, ~5-6 on screen) for phantom-density packing;
+// 9 bands keep the viewport covered at the row-recycle pitch extremes.
+export const CELL_LAT = 11;
+export const CELL_LON = 15;
+export const PATCH_LAT_SPAN = 8.5;
+export const PATCH_LON_SPAN = 12.25;
+export const LAT_BANDS = [44, 33, 22, 11, 0, -11, -22, -33, -44];
 export const COLS = 360 / CELL_LON;
 
 // Mono metadata strip sits ON the row-boundary grid line below each card.
 export const STRIP_LAT_OFFSET = -CELL_LAT / 2;
-export const STRIP_LAT_SPAN = 1.8;
-export const STRIP_LON_SPAN = 24.5;
+export const STRIP_LAT_SPAN = 1.1;
+export const STRIP_LON_SPAN = 12.25;
 
 export interface Slot {
   position: [number, number, number];
@@ -73,8 +72,8 @@ export function warpedPosition(
 }
 
 /**
- * 5 bands x 12 aligned columns = 60 cells, sorted by angular distance from
- * the initial forward vector (0,0,-1) so index 0 is the most prominent slot.
+ * LAT_BANDS x COLS aligned cells, sorted by angular distance from the
+ * initial forward vector (0,0,-1) so index 0 is the most prominent slot.
  */
 export function generateSlots(): Slot[] {
   const slots: Slot[] = [];

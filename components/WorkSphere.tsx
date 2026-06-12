@@ -165,7 +165,7 @@ export default function WorkSphere({
     const slots = generateSlots();
     const ranked = [...allProjects].sort((a, b) => a.rank - b.rank);
     const texW = isNarrow ? 512 : 1024;
-    const texH = isNarrow ? 260 : 520;
+    const texH = isNarrow ? 356 : 712;
     const anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
     const textures = new Map<string, TileTexture>();
@@ -210,9 +210,16 @@ export default function WorkSphere({
     let rowOffset = 0;
 
     const tiles = slots.map((slot, i) => {
-      const project = ranked[i % ranked.length];
       const bandIdx = LAT_BANDS.indexOf(slot.lat);
       const colIdx = Math.round(slot.lon / CELL_LON);
+      // Column stride 1 / row stride 5 (coprime with 18) tiles the project
+      // set with no repeats near each other — index-order assignment puts
+      // identical cards side by side now that cells outnumber projects 12x.
+      // The offset keeps rank 1 on the initial front-center cell.
+      const project =
+        ranked[
+          mod(colIdx + (bandIdx - LAT_BANDS.indexOf(0)) * 5, ranked.length)
+        ];
       baseContent[bandIdx][colIdx] = project;
       const rotY = -slot.lon * DEG;
 
@@ -294,7 +301,7 @@ export default function WorkSphere({
           z: 1,
           duration: 0.9,
           ease: "expo.out",
-          delay: 0.15 + i * 0.012,
+          delay: 0.15 + i * 0.005,
           onUpdate: () => requestRender(),
         });
       });
@@ -665,7 +672,7 @@ export default function WorkSphere({
 
       renderer.render(scene, camera);
     };
-    requestRender(1500 + tiles.length * 18);
+    requestRender(1500 + tiles.length * 5);
     frame();
 
     // --- resize ---
