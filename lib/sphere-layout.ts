@@ -41,24 +41,32 @@ export function slotPosition(
 }
 
 /**
- * Point on the vertically-amplified surface. With curvature gain k the
- * vertical profile is a circle of radius R/(1+k) offset from the axis — a
- * torus interior. Rows tip away from the equator (1+k)x faster than on the
- * sphere while keeping their arc-length height, the surface has no poles
- * (matching the endless vertical conveyor), and k = 0 degenerates to the
- * plain sphere. Cards, strips, and grid lines must all use this so they
- * warp together.
+ * Point on the vertically-flattened surface that makes rows foreshorten.
+ * Surface normals rotate (1-k)x slower than on a sphere while rows keep
+ * their arc-length height, so off-center rows tip AWAY from the view ray
+ * by k*lat and read as trapezoids. k = 0 is the plain sphere; k = 1 is a
+ * vertical cylinder (normals all forward — the strongest clean tilt, with
+ * meridians converging to a vanishing point that scrolling never reaches).
+ * Cards, strips, and grid lines must all use this so they warp together.
  */
 export function warpedPosition(
   latDeg: number,
   lonDeg: number,
   k: number
 ): [number, number, number] {
-  const a = (1 + k) * latDeg * DEG;
   const lon = lonDeg * DEG;
-  const minor = SPHERE_RADIUS / (1 + k);
-  const rho = SPHERE_RADIUS - minor + minor * Math.cos(a);
-  return [rho * Math.sin(lon), minor * Math.sin(a), -rho * Math.cos(lon)];
+  const latRad = latDeg * DEG;
+  const g = 1 - k;
+  let y: number;
+  let rho: number;
+  if (Math.abs(g) < 1e-6) {
+    y = SPHERE_RADIUS * latRad;
+    rho = SPHERE_RADIUS;
+  } else {
+    y = (SPHERE_RADIUS / g) * Math.sin(g * latRad);
+    rho = SPHERE_RADIUS - (SPHERE_RADIUS / g) * (1 - Math.cos(g * latRad));
+  }
+  return [rho * Math.sin(lon), y, -rho * Math.cos(lon)];
 }
 
 /**
