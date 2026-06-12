@@ -8,6 +8,7 @@ import {
   generateSlots,
   slotPosition,
   createPatchGeometry,
+  writePatchPositions,
   LAT_BANDS,
   CELL_LAT,
   CELL_LON,
@@ -40,6 +41,7 @@ interface TileData {
 const FORWARD = new THREE.Vector3(0, 0, -1);
 const DEG = Math.PI / 180;
 const GRID_COLOR = 0x3a3e45;
+const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 export default function WorkSphere({
   activeThemes,
@@ -122,17 +124,10 @@ export default function WorkSphere({
       return { geo, lon: CELL_LON / 2 + k * CELL_LON };
     });
 
-    // static globe armature: boundary circles + meridians converging at the
-    // poles (the sphere rotates rigidly through them on both axes)
-    for (const { geo, lat } of latCircles) {
-      const attr = geo.getAttribute("position") as THREE.BufferAttribute;
-      for (let i = 0; i < CIRCLE_SEGS; i++) {
-        const p = slotPosition(lat, (i * 360) / CIRCLE_SEGS);
-        attr.setXYZ(i, p[0] * 1.004, p[1] * 1.004, p[2] * 1.004);
-      }
-      attr.needsUpdate = true;
-      geo.computeBoundingSphere();
-    }
+    // Meridians are a STATIC armature spanning pole to pole: their
+    // convergence point sits in the distance beyond the cards and is never
+    // reached — rows flow along them endlessly. Only the row-boundary
+    // circles travel with the content (re-projected from visual pitch).
     for (const { geo, lon } of meridians) {
       const attr = geo.getAttribute("position") as THREE.BufferAttribute;
       for (let i = 0; i <= MERIDIAN_SEGS; i++) {
@@ -143,6 +138,19 @@ export default function WorkSphere({
       attr.needsUpdate = true;
       geo.computeBoundingSphere();
     }
+
+    const writeGrid = (pitchDeg: number) => {
+      for (const { geo, lat } of latCircles) {
+        const attr = geo.getAttribute("position") as THREE.BufferAttribute;
+        for (let i = 0; i < CIRCLE_SEGS; i++) {
+          const p = slotPosition(lat + pitchDeg, (i * 360) / CIRCLE_SEGS);
+          attr.setXYZ(i, p[0] * 1.004, p[1] * 1.004, p[2] * 1.004);
+        }
+        attr.needsUpdate = true;
+        geo.computeBoundingSphere();
+      }
+    };
+    writeGrid(0);
 
     // --- shared per-project resources (slots repeat the 18 projects) ---
     const slots = generateSlots();
@@ -186,8 +194,17 @@ export default function WorkSphere({
       );
     }
 
+    // Logical content lives in a 5x12 matrix so vertical row-recycling and
+    // filtering can re-address it; rowOffset shifts which base row a
+    // physical band displays.
+    const baseContent: Project[][] = LAT_BANDS.map(() => []);
+    let rowOffset = 0;
+
     const tiles = slots.map((slot, i) => {
       const project = ranked[i % ranked.length];
+      const bandIdx = LAT_BANDS.indexOf(slot.lat);
+      const colIdx = Math.round(slot.lon / CELL_LON);
+      baseContent[bandIdx][colIdx] = project;
       const rotY = -slot.lon * DEG;
 
       const material = new THREE.MeshBasicMaterial({
@@ -213,19 +230,47 @@ export default function WorkSphere({
       strip.rotation.y = rotY;
       stripGroup.add(strip);
 
-      return { mesh, material, strip, stripMaterial, project };
+      return { mesh, material, strip, stripMaterial, project, bandIdx, colIdx, idx: i };
     });
 
-    // --- rotation state (both axes unclamped — a real globe) ---
+    type TileEntry = (typeof tiles)[number];
+    const tileGrid: TileEntry[][] = LAT_BANDS.map(() => []);
+    for (const t of tiles) tileGrid[t.bandIdx][t.colIdx] = t;
+
+    // At a row wrap the meshes jump one row while content stays put, so the
+    // positional fade state must travel along the column with the content —
+    // otherwise edge tiles pop in brightness at every crossing.
+    const shiftFadeState = (dRows: number) => {
+      const snap = tiles.map((t) => t.material.opacity);
+      for (const t of tiles) {
+        const src =
+          tileGrid[mod(t.bandIdx - dRows, LAT_BANDS.length)][t.colIdx];
+        t.material.opacity = snap[src.idx];
+      }
+    };
+    const displayedProject = (entry: TileEntry): Project =>
+      baseContent[mod(entry.bandIdx - rowOffset, LAT_BANDS.length)][entry.colIdx];
+
+    const applyContent = (entry: TileEntry) => {
+      const next = displayedProject(entry);
+      if (entry.project.slug === next.slug) return;
+      entry.project = next;
+      (entry.mesh.userData as TileData).project = next;
+      entry.material.map = textures.get(next.slug)!.texture;
+      entry.stripMaterial.map = stripTextures.get(next.slug)!.texture;
+    };
+
+    const remap = () => tiles.forEach(applyContent);
+
+    // --- rotation state (pitch is unclamped; rows recycle every cell) ---
     let yaw = 0;
     let pitch = 0;
     let targetYaw = 0;
     let targetPitch = 0;
     let inertia = 0;
     let inertiaY = 0;
-    // past a pole the world is upside down; flip horizontal input so
-    // dragging right still moves the scene right on screen
-    const yawDir = () => (Math.cos(pitch) >= 0 ? 1 : -1);
+    const CELL_RAD = CELL_LAT * DEG;
+    const HALF_CELL_RAD = CELL_RAD / 2;
 
     // --- intro ---
     let introTween: gsap.core.Tween | null = null;
@@ -356,10 +401,9 @@ export default function WorkSphere({
         lastX = e.clientX;
         lastY = e.clientY;
         moved += Math.abs(dx) + Math.abs(dy);
-        const dYaw = dx * 0.0045 * yawDir();
-        targetYaw += dYaw;
+        targetYaw += dx * 0.0045;
         targetPitch -= dy * 0.003;
-        dragVel = dragVel * 0.5 + dYaw * 0.5;
+        dragVel = dragVel * 0.5 + dx * 0.0045 * 0.5;
         dragVelY = dragVelY * 0.5 + -dy * 0.003 * 0.5;
         requestRender();
       } else if (e.pointerType === "mouse") {
@@ -383,7 +427,7 @@ export default function WorkSphere({
     const onWheel = (e: WheelEvent) => {
       if (modeRef.current !== "active") return;
       e.preventDefault();
-      targetYaw += e.deltaX * 0.0012 * yawDir();
+      targetYaw += e.deltaX * 0.0012;
       targetPitch += e.deltaY * 0.0012;
       requestRender();
     };
@@ -396,7 +440,7 @@ export default function WorkSphere({
 
     // --- imperative hooks for filter / keyboard ---
     rotateByRef.current = (dYaw, dPitch) => {
-      targetYaw += dYaw * yawDir();
+      targetYaw += dYaw;
       targetPitch += dPitch;
       requestRender(1500);
     };
@@ -428,18 +472,14 @@ export default function WorkSphere({
       let swapIndex = 0;
       tiles.forEach((entry, i) => {
         const next = matchList[i % matchList.length];
+        baseContent[mod(entry.bandIdx - rowOffset, LAT_BANDS.length)][
+          entry.colIdx
+        ] = next;
         if (entry.project.slug === next.slug) return;
-
-        const swap = () => {
-          entry.project = next;
-          (entry.mesh.userData as TileData).project = next;
-          entry.material.map = textures.get(next.slug)!.texture;
-          entry.stripMaterial.map = stripTextures.get(next.slug)!.texture;
-        };
 
         gsap.killTweensOf(entry.material);
         if (reducedMotion) {
-          swap();
+          applyContent(entry);
           requestRender();
           return;
         }
@@ -450,7 +490,7 @@ export default function WorkSphere({
           ease: "power2.in",
           delay,
           onUpdate: () => requestRender(),
-          onComplete: swap,
+          onComplete: () => applyContent(entry),
         });
         gsap.to(entry.material, {
           opacity: 1,
@@ -481,6 +521,7 @@ export default function WorkSphere({
     const clock = new THREE.Clock();
     const wp = new THREE.Vector3();
     const videoDots = new Map<string, number>();
+    let lastPitchDeg = 0;
     let rafId = 0;
 
     const frame = () => {
@@ -511,9 +552,61 @@ export default function WorkSphere({
       yaw += (targetYaw - yaw) * k;
       pitch += (targetPitch - pitch) * k;
 
-      // true sphere: rigid rotation on both axes; pitch is endless and
-      // naturally periodic (over the poles and around the back)
-      group.rotation.set(pitch, yaw, 0);
+      // endless vertical spin: pitch stays within half a cell while content
+      // shifts one row per crossing. Geometry is re-projected from the
+      // visual latitude below, so the wrap is exactly seamless.
+      let deltaRows = 0;
+      while (pitch > HALF_CELL_RAD) {
+        pitch -= CELL_RAD;
+        targetPitch -= CELL_RAD;
+        rowOffset--;
+        deltaRows--;
+      }
+      while (pitch < -HALF_CELL_RAD) {
+        pitch += CELL_RAD;
+        targetPitch += CELL_RAD;
+        rowOffset++;
+        deltaRows++;
+      }
+      if (deltaRows !== 0) {
+        shiftFadeState(deltaRows);
+        remap();
+      }
+
+      group.rotation.set(0, yaw, 0);
+
+      // vertical motion = re-projection, not rigid rotation (band patches
+      // aren't congruent; rotating them makes the row wrap visibly snap)
+      const pitchDeg = pitch / DEG;
+      if (pitchDeg !== lastPitchDeg) {
+        lastPitchDeg = pitchDeg;
+        for (const bandLat of LAT_BANDS) {
+          const vLat = bandLat + pitchDeg;
+          writePatchPositions(
+            patchGeos.get(bandLat)!,
+            vLat,
+            PATCH_LAT_SPAN,
+            PATCH_LON_SPAN
+          );
+          writePatchPositions(
+            stripGeos.get(bandLat)!,
+            vLat + STRIP_LAT_OFFSET,
+            STRIP_LAT_SPAN,
+            STRIP_LON_SPAN,
+            8,
+            1
+          );
+        }
+        for (const entry of tiles) {
+          const vLat = LAT_BANDS[entry.bandIdx] + pitchDeg;
+          const lon = entry.colIdx * CELL_LON;
+          entry.mesh.position.set(...slotPosition(vLat, lon));
+          entry.strip.position.set(
+            ...slotPosition(vLat + STRIP_LAT_OFFSET, lon)
+          );
+        }
+        writeGrid(pitchDeg);
+      }
 
       // fade tiles rotating behind the camera; strips track their tile
       videoDots.clear();
