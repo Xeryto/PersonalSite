@@ -41,6 +41,27 @@ export function slotPosition(
 }
 
 /**
+ * Point on the vertically-amplified surface. With curvature gain k the
+ * vertical profile is a circle of radius R/(1+k) offset from the axis — a
+ * torus interior. Rows tip away from the equator (1+k)x faster than on the
+ * sphere while keeping their arc-length height, the surface has no poles
+ * (matching the endless vertical conveyor), and k = 0 degenerates to the
+ * plain sphere. Cards, strips, and grid lines must all use this so they
+ * warp together.
+ */
+export function warpedPosition(
+  latDeg: number,
+  lonDeg: number,
+  k: number
+): [number, number, number] {
+  const a = (1 + k) * latDeg * DEG;
+  const lon = lonDeg * DEG;
+  const minor = SPHERE_RADIUS / (1 + k);
+  const rho = SPHERE_RADIUS - minor + minor * Math.cos(a);
+  return [rho * Math.sin(lon), minor * Math.sin(a), -rho * Math.cos(lon)];
+}
+
+/**
  * 5 bands x 12 aligned columns = 60 cells, sorted by angular distance from
  * the initial forward vector (0,0,-1) so index 0 is the most prominent slot.
  */
@@ -77,30 +98,17 @@ export function writePatchPositions(
   lonSpanDeg: number,
   segsX = 8,
   segsY = 6,
-  leanRad = 0
+  k = 0
 ): void {
-  const center = slotPosition(latCenterDeg, 0);
+  const center = warpedPosition(latCenterDeg, 0, k);
   const attr = geometry.getAttribute("position") as THREE.BufferAttribute;
-  const cosA = Math.cos(leanRad);
-  const sinA = Math.sin(leanRad);
   let i = 0;
   for (let iy = 0; iy <= segsY; iy++) {
     const lat = latCenterDeg + latSpanDeg / 2 - (iy * latSpanDeg) / segsY;
     for (let ix = 0; ix <= segsX; ix++) {
       const lon = -lonSpanDeg / 2 + (ix * lonSpanDeg) / segsX;
-      const p = slotPosition(lat, lon);
-      const ry = p[1] - center[1];
-      const rz = p[2] - center[2];
-      // lean about the card's horizontal center axis: amplifies the
-      // vertical curvature so off-equator rows visibly tip away (the
-      // camera sits at the sphere center, so without this every card
-      // faces it head-on and never foreshortens)
-      attr.setXYZ(
-        i++,
-        p[0] - center[0],
-        ry * cosA - rz * sinA,
-        ry * sinA + rz * cosA
-      );
+      const p = warpedPosition(lat, lon, k);
+      attr.setXYZ(i++, p[0] - center[0], p[1] - center[1], p[2] - center[2]);
     }
   }
   attr.needsUpdate = true;

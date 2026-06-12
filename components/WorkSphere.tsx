@@ -7,6 +7,7 @@ import { projects as allProjects, type Project, type Theme } from "@/lib/project
 import {
   generateSlots,
   slotPosition,
+  warpedPosition,
   createPatchGeometry,
   writePatchPositions,
   LAT_BANDS,
@@ -128,15 +129,15 @@ export default function WorkSphere({
       return { geo, lon: CELL_LON / 2 + k * CELL_LON };
     });
 
-    // Meridians are a STATIC armature spanning pole to pole: their
-    // convergence point sits in the distance beyond the cards and is never
-    // reached — rows flow along them endlessly. Only the row-boundary
+    // Meridians are a STATIC armature on the same warped surface as the
+    // cards, pinching toward a convergence in the distance that scrolling
+    // never reaches — rows flow along them endlessly. Only the row-boundary
     // circles travel with the content (re-projected from visual pitch).
     for (const { geo, lon } of meridians) {
       const attr = geo.getAttribute("position") as THREE.BufferAttribute;
       for (let i = 0; i <= MERIDIAN_SEGS; i++) {
-        const lat = -90 + (180 * i) / MERIDIAN_SEGS;
-        const p = slotPosition(lat, lon);
+        const lat = -66 + (132 * i) / MERIDIAN_SEGS;
+        const p = warpedPosition(lat, lon, LEAN_K);
         attr.setXYZ(i, p[0] * 1.004, p[1] * 1.004, p[2] * 1.004);
       }
       attr.needsUpdate = true;
@@ -147,7 +148,11 @@ export default function WorkSphere({
       for (const { geo, lat } of latCircles) {
         const attr = geo.getAttribute("position") as THREE.BufferAttribute;
         for (let i = 0; i < CIRCLE_SEGS; i++) {
-          const p = slotPosition(lat + pitchDeg, (i * 360) / CIRCLE_SEGS);
+          const p = warpedPosition(
+            lat + pitchDeg,
+            (i * 360) / CIRCLE_SEGS,
+            LEAN_K
+          );
           attr.setXYZ(i, p[0] * 1.004, p[1] * 1.004, p[2] * 1.004);
         }
         attr.needsUpdate = true;
@@ -593,25 +598,24 @@ export default function WorkSphere({
             PATCH_LON_SPAN,
             8,
             6,
-            -LEAN_K * vLat * DEG
+            LEAN_K
           );
-          const sLat = vLat + STRIP_LAT_OFFSET;
           writePatchPositions(
             stripGeos.get(bandLat)!,
-            sLat,
+            vLat + STRIP_LAT_OFFSET,
             STRIP_LAT_SPAN,
             STRIP_LON_SPAN,
             8,
             1,
-            -LEAN_K * sLat * DEG
+            LEAN_K
           );
         }
         for (const entry of tiles) {
           const vLat = LAT_BANDS[entry.bandIdx] + pitchDeg;
           const lon = entry.colIdx * CELL_LON;
-          entry.mesh.position.set(...slotPosition(vLat, lon));
+          entry.mesh.position.set(...warpedPosition(vLat, lon, LEAN_K));
           entry.strip.position.set(
-            ...slotPosition(vLat + STRIP_LAT_OFFSET, lon)
+            ...warpedPosition(vLat + STRIP_LAT_OFFSET, lon, LEAN_K)
           );
         }
         writeGrid(pitchDeg);
