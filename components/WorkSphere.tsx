@@ -42,10 +42,13 @@ interface TileData {
 const FORWARD = new THREE.Vector3(0, 0, -1);
 const DEG = Math.PI / 180;
 const GRID_COLOR = 0x3a3e45;
-// vertical curvature amplification: how strongly rows tip away from the
-// camera per degree of visual latitude (camera sits at the sphere center,
-// so cards never foreshorten without it)
-const LEAN_K = 1.0;
+// k = 0: plain sphere, gives latitude-circle grid lines their phantom-style
+// bow while meridians stay straight (see warpedPosition).
+const LEAN_K = 0;
+// rigid tilt applied to each card/strip about its own horizontal axis,
+// proportional to visual latitude — this is what makes off-center rows
+// visibly tip away from the camera.
+const TILT_K = 0.8;
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 export default function WorkSphere({
@@ -212,9 +215,9 @@ export default function WorkSphere({
     const tiles = slots.map((slot, i) => {
       const bandIdx = LAT_BANDS.indexOf(slot.lat);
       const colIdx = Math.round(slot.lon / CELL_LON);
-      // Column stride 1 / row stride 5 (coprime with 18) tiles the project
-      // set with no repeats near each other — index-order assignment puts
-      // identical cards side by side now that cells outnumber projects 12x.
+      // COLS == 18 == ranked.length, so a row's colIdx alone cycles the
+      // full project set with no wraparound; row stride 5 (coprime with
+      // 18) offsets each band so repeats never land in the same column.
       // The offset keeps rank 1 on the initial front-center cell.
       const project =
         ranked[
@@ -231,6 +234,10 @@ export default function WorkSphere({
       });
       const mesh = new THREE.Mesh(patchGeos.get(slot.lat)!, material);
       mesh.position.set(...slot.position);
+      // ZYX order applies the latitude tilt (x) in the card's own local
+      // frame before the longitude yaw (y), so tilt direction is
+      // independent of where the card sits around the ring.
+      mesh.rotation.order = "ZYX";
       mesh.rotation.y = rotY;
       mesh.userData = { project } satisfies TileData;
       tileGroup.add(mesh);
@@ -243,6 +250,7 @@ export default function WorkSphere({
       });
       const strip = new THREE.Mesh(stripGeos.get(slot.lat)!, stripMaterial);
       strip.position.set(...slotPosition(slot.lat + STRIP_LAT_OFFSET, slot.lon));
+      strip.rotation.order = "ZYX";
       strip.rotation.y = rotY;
       stripGroup.add(strip);
 
@@ -621,9 +629,11 @@ export default function WorkSphere({
           const vLat = LAT_BANDS[entry.bandIdx] + pitchDeg;
           const lon = entry.colIdx * CELL_LON;
           entry.mesh.position.set(...warpedPosition(vLat, lon, LEAN_K));
+          entry.mesh.rotation.x = -vLat * DEG * TILT_K;
           entry.strip.position.set(
             ...warpedPosition(vLat + STRIP_LAT_OFFSET, lon, LEAN_K)
           );
+          entry.strip.rotation.x = entry.mesh.rotation.x;
         }
         writeGrid(pitchDeg);
       }

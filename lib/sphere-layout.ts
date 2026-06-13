@@ -6,19 +6,20 @@ export const SPHERE_RADIUS = 10;
 // extent, so columns align across rows and all cells subtend equal angles
 // from the camera at the sphere's center. Cards are curved sphere patches
 // filling their cell; the remainder is the gutter where grid lines run.
-// Half-scale cells (24 cols, ~5-6 on screen) for phantom-density packing;
-// 9 bands keep the viewport covered at the row-recycle pitch extremes.
-export const CELL_LAT = 11;
-export const CELL_LON = 15;
-export const PATCH_LAT_SPAN = 8.5;
-export const PATCH_LON_SPAN = 12.25;
-export const LAT_BANDS = [44, 33, 22, 11, 0, -11, -22, -33, -44];
+// 18 cols (~4-5 on screen) for phantom-density packing; COLS == project
+// count so each row cycles the full set with no wraparound. 7 bands keep
+// the viewport covered at the row-recycle pitch extremes.
+export const CELL_LAT = 14;
+export const CELL_LON = 20;
+export const PATCH_LAT_SPAN = 10.8;
+export const PATCH_LON_SPAN = 16.3;
+export const LAT_BANDS = [42, 28, 14, 0, -14, -28, -42];
 export const COLS = 360 / CELL_LON;
 
 // Mono metadata strip sits ON the row-boundary grid line below each card.
 export const STRIP_LAT_OFFSET = -CELL_LAT / 2;
-export const STRIP_LAT_SPAN = 1.1;
-export const STRIP_LON_SPAN = 12.25;
+export const STRIP_LAT_SPAN = 1.4;
+export const STRIP_LON_SPAN = 16.3;
 
 export interface Slot {
   position: [number, number, number];
@@ -43,13 +44,13 @@ export function slotPosition(
 }
 
 /**
- * Point on the vertically-flattened surface that makes rows foreshorten.
- * Surface normals rotate (1-k)x slower than on a sphere while rows keep
- * their arc-length height, so off-center rows tip AWAY from the view ray
- * by k*lat and read as trapezoids. k = 0 is the plain sphere; k = 1 is a
- * vertical cylinder (normals all forward — the strongest clean tilt, with
- * meridians converging to a vanishing point that scrolling never reaches).
- * Cards, strips, and grid lines must all use this so they warp together.
+ * Point on the vertically-flattened surface used for grid/card placement.
+ * k = 0 is the plain sphere: viewed from its center, latitude circles
+ * project as bowed arcs and meridians stay straight (the phantom-style
+ * curved-row look), while each patch faces the camera dead-on. The
+ * additional per-row "tip away" tilt is a separate rigid rotation applied
+ * to cards/strips in WorkSphere.tsx. Cards, strips, and grid lines must
+ * all use this so they sit on the same surface.
  */
 export function warpedPosition(
   latDeg: number,
