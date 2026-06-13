@@ -48,7 +48,7 @@ const LEAN_K = 0;
 // rigid tilt applied to each card/strip about its own horizontal axis,
 // proportional to visual latitude — this is what makes off-center rows
 // visibly tip away from the camera.
-const TILT_K = 0.8;
+const TILT_K = 1.3;
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 export default function WorkSphere({
